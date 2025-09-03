@@ -18,18 +18,11 @@ class CalculatorInput(BaseModel):
 def Calculator(expression: str) -> str:
     """
     Exécute une expression mathématique simple et retourne le résultat.
-    AVERTISSEMENT : L'utilisation de eval() est dangereuse en production sans
-    sandboxing strict. Pour cet exercice, nous allons nettoyer l'expression
-    pour des raisons de sécurité de base, mais soyez conscient des risques.
     """
 
     logger.info(f"Outil 'calculatrice' appelé avec l'expression: '{expression}'")
     try:
-        safe_expression = re.sub(r'[^-+*/(). \d]', '', expression)
-        if not re.fullmatch(r'[\d\s+\-*/().]*', safe_expression):
-            raise ValueError("Expression contient des caractères non autorisés.")
-
-        result = str(ne.evaluate(safe_expression))
+        result = str(ne.evaluate(expression))
         logger.info(f"Résultat de l'expression '{expression}': {result}")
         return result
     except SyntaxError:
