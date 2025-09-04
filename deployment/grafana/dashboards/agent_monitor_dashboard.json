@@ -1,0 +1,199 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "max": null,
+          "min": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercent": false,
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "rate(aiops_monitor_agent_api_requests_total[5m])",
+          "legendFormat": "Agent API Request Rate",
+          "refId": "A"
+        }
+      ],
+      "title": "AIOps Monitor Agent - API Request Rate (5m)",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "footer": {
+          "fields": "",
+          "mode": "stats"
+        },
+        "histogram": {
+          "fillOpacity": 0.3
+        },
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(aiops_monitor_agent_api_request_latency_seconds_bucket[5m])) by (le))",
+          "legendFormat": "Agent API P95 Latency",
+          "refId": "A"
+        }
+      ],
+      "title": "AIOps Monitor Agent - P95 API Latency (5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "max": null,
+          "min": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 8
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercent": false,
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(aiops_monitor_agent_runs_total[5m]))",
+          "legendFormat": "Agent Runs Rate",
+          "refId": "A"
+        }
+      ],
+      "title": "AIOps Monitor Agent - Runs Rate (5m)",
+      "type": "stat"
+    },
+    {
+      "datasource": "Loki",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "links": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 8,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "colorByLogLevel": false,
+        "showLabels": false,
+        "showTime": true,
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "expr": "{job=\"docker\", container_name=\"aiops-agent-monitor-service\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "AIOps Monitor Agent - Logs",
+      "type": "logs"
+    }
+  ],
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "AIOps Monitor Agent Health Dashboard",
+  "uid": "aiops_monitor_agent_health",
+  "version": 1
+}
