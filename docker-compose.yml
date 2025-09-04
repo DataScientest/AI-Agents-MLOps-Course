@@ -17,7 +17,7 @@ services:
     environment:
       - GROQ_API_KEY=${GROQ_API_KEY}
       - LANGCHAIN_TRACING_V2="true"
-      - LANGCHAIN_API_KEY="${LANGCHAIN_API_KEY}"
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
       - LANGCHAIN_PROJECT="AIOps Monitor Agent Internal Runs"
     depends_on:
       - prometheus
