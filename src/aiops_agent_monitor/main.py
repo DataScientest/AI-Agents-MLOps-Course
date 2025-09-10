@@ -1,33 +1,37 @@
 import os
-import random
 import time
 import logging
-import uvicorn
 
 from fastapi import FastAPI, Request, Response, HTTPException, Body
 from prometheus_client import generate_latest, Counter, Histogram, Gauge
-from typing import Dict, Any, List, Optional
+
+from typing import Dict, Any
 
 from langchain_groq import ChatGroq
-from langchain_core.tools import Tool
-from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
+from langchain_core.prompts import ChatPromptTemplate
+from langgraph.graph import StateGraph
+from langgraph.prebuilt import ToolNode 
 
 from state import AgentState
-from agents.conditional_agent import create_alert_router_agent
-from tools.mlops_tools import check_alert_severity, CheckAlertSeverityInput
 
+from tools.mlops_tools import (
+    PrometheusQuery,
+    LokiLogSearch,   
+    GrafanaDashboardLink
+)
 
 # --- FastAPI App Initialization ---
 app = FastAPI(
-    title="AIOps Monitor Agent Service",
-    description="API for the MLOps Guard Agent (Conditional Branching Pattern), exposing endpoints to receive alerts and metrics."
+    title="AIOps Diagnostic Agent Service",
+    description="API for the MLOps Guard Agent, capable of diagnosing issues using Prometheus and Loki."
 )
 
 # --- Logging Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Prometheus Metrics for the Agent Service ---
+# --- Prometheus Metrics for the Agent Service ITSELF ---
 API_REQUEST_COUNT = Counter(
     'aiops_monitor_agent_api_requests_total', 'Total number of requests to the AIOps Monitor Agent API'
 )
@@ -36,7 +40,7 @@ API_REQUEST_LATENCY_SECONDS = Histogram(
     buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
 )
 AGENT_RUN_COUNT = Counter(
-    'aiops_monitor_agent_runs_total', 'Total number of agent execution runs triggered'
+    'aiops_monitor_agent_runs_total', 'Total number of agent diagnostic runs triggered'
 )
 AGENT_ERROR_COUNT = Counter(
     'aiops_monitor_agent_errors_total', 'Total number of agent execution errors', ['endpoint', 'error_type']
@@ -44,11 +48,10 @@ AGENT_ERROR_COUNT = Counter(
 AGENT_STATUS_GAUGE = Gauge(
     'aiops_monitor_agent_status', 'Current operational status of the AIOps Monitor Agent (1=online, 0=offline)'
 )
-AGENT_ALERT_SEVERED_COUNT = Counter(
-    'aiops_monitor_agent_alerts_processed_severity_total', 'Count of alerts processed by severity by the Monitor Agent', ['severity']
+AGENT_DIAGNOSIS_COUNT = Counter(
+    'aiops_monitor_agent_diagnosis_total', 'Count of diagnosis attempts', ['outcome']
 )
 
-# Set initial agent status
 AGENT_STATUS_GAUGE.set(1)
 
 # --- LLM Initialization ---
@@ -60,33 +63,92 @@ if not GROQ_API_KEY:
 try:
     llm_for_deployed_agent = ChatGroq(
         temperature=0,
-        model_name="llama-3.1-8b-instant",
+        model_name=os.getenv("GROQ_MODEL_NAME"),
         groq_api_key=GROQ_API_KEY
     )
     logger.info("LLM for deployed monitor agent initialized successfully.")
 except Exception as e:
-    logger.error(f"Error initializing LLM for deployed monitor agent: {e}")
+    logger.error(f"Error initializing LLM for deployed monitor agent: {e}", exc_info=True)
     exit(1)
 
-# --- Tools available to the deployed agent ---
-deployed_agent_tools = [
-    Tool(
-        name="CheckAlertSeverity",
-        func=check_alert_severity,
-        description="Checks the severity of an alert description. Returns 'critical', 'medium' or 'low'.",
-        args_schema=CheckAlertSeverityInput
-    ),
+deployed_diagnostic_tools = [
+    PrometheusQuery,
+    LokiLogSearch,   
+    GrafanaDashboardLink 
 ]
-logger.info(f"{len(deployed_agent_tools)} tools available to the deployed AIOps Monitor Agent.")
+logger.info(f"{len(deployed_diagnostic_tools)} tools available to the deployed AIOps Diagnostic Agent.")
 
-# --- Instantiate the LangGraph Agent ---
-try:
-    alert_router_agent_instance = create_alert_router_agent(llm_for_deployed_agent, deployed_agent_tools)
-    logger.info("Conditional Branching AIOps Monitor Agent (LangGraph) instantiated successfully.")
-except Exception as e:
-    logger.error(f"Error instantiating LangGraph agent: {e}")
-    exit(1)
 
+# --- Define the Diagnostic Agent LangGraph Workflow ---
+
+def llm_agent_node(state: AgentState) -> Dict[str, Any]:
+    logger.info(f"Node 'llm_agent_node': Agent processing alert: {state['alert_info']}")
+    
+    system_message_content = (
+        "You are an expert MLOps Diagnostic Agent. Your goal is to analyze alerts, "
+        "gather relevant data using your tools, and provide clear diagnoses with proposed solutions. "
+        "Be concise and always use the tools provided to gather information before making a diagnosis.\n"
+        "**IMPORTANT:** You can only call ONE tool at a time. If you need to gather multiple pieces of information, call one tool, wait for the observation, then decide on the next tool call. Do NOT try to call multiple tools in a single response."
+    )
+    
+    prompt_for_llm = ChatPromptTemplate.from_messages([
+        SystemMessage(content=system_message_content),
+        ("placeholder", "{messages}") 
+    ])
+    
+    llm_with_tools = llm_for_deployed_agent.bind_tools(deployed_diagnostic_tools)
+    llm_chain = prompt_for_llm | llm_with_tools
+    
+    result: BaseMessage = llm_chain.invoke({"messages": state['messages']})
+    
+    logger.info(f"LLM produced result: {result}")
+    
+    return {"messages": [result]}
+
+def finalize_diagnosis_node(state: AgentState) -> Dict[str, Any]:
+    logger.info(f"Node 'finalize_diagnosis': Finalizing diagnosis for: {state['alert_info']}")
+    diagnosis_prompt = ChatPromptTemplate.from_messages([
+        SystemMessage(
+            "You are an expert MLOps diagnostic agent. Summarize the findings from the alert, metrics, and logs. "
+            "Provide a clear diagnosis and propose a potential solution. Keep it concise."
+        ),
+        HumanMessage(f"Alert: {state['alert_info']}\n"
+                     f"Prometheus data: {state.get('prometheus_data', 'No data.')}\n"
+                     f"Loki logs: {state.get('loki_logs', 'No logs.')}\n"
+                     f"Grafana Link: {state.get('grafana_link', 'No link generated.')}\n"
+                     f"Based on this, what is your diagnosis and proposed solution?")
+    ])
+    final_response_obj = llm_for_deployed_agent.invoke(diagnosis_prompt.format_messages())
+    final_msg = final_response_obj.content
+    return {"messages": state['messages'] + [AIMessage(content=final_msg)], "final_result": final_msg}
+
+def route_agent_decide(state: AgentState) -> str:
+    if state['messages'] and isinstance(state['messages'][-1], AIMessage) and state['messages'][-1].tool_calls:
+        logger.info("Agent decided to use a tool. Routing to tool_executor.")
+        return "tool_executor"
+    else:
+        logger.info("Agent generated a direct response or no tool call. Routing to finalize_diagnosis.")
+        return "finalize_diagnosis" 
+
+diagnostic_workflow = StateGraph(AgentState)
+diagnostic_workflow.add_node("llm_agent_node", llm_agent_node)
+diagnostic_workflow.add_node("tool_executor", ToolNode(deployed_diagnostic_tools))
+diagnostic_workflow.add_node("finalize_diagnosis", finalize_diagnosis_node)
+diagnostic_workflow.set_entry_point("llm_agent_node") 
+
+diagnostic_workflow.add_conditional_edges(
+    "llm_agent_node",
+    route_agent_decide,
+    {
+        "tool_executor": "tool_executor",
+        "finalize_diagnosis": "finalize_diagnosis"
+    }
+)
+diagnostic_workflow.add_edge("tool_executor", "llm_agent_node") 
+diagnostic_workflow.set_finish_point("finalize_diagnosis")
+
+diagnostic_agent_instance = diagnostic_workflow.compile()
+logger.info("MLOps Diagnostic Agent (LangGraph) instantiated successfully and compiled.")
 
 # --- Middleware for request metrics ---
 @app.middleware("http")
@@ -106,64 +168,59 @@ async def add_process_time_header(request: Request, call_next):
         logger.info(f"API Request to {request.url.path} took {process_time:.4f} seconds.")
 
 
-# --- Endpoints ---
+# --- Routes ---
 @app.get("/")
 async def read_root():
     logger.info("Received request to root endpoint.")
-    return {"message": "AIOps Monitor Agent Service is running and ready to receive alerts!"}
+    return {"message": "AIOps Diagnostic Agent Service is running and ready to diagnose alerts!"}
 
-@app.post("/receive_alert")
-async def receive_alert(alert_payload: Dict[str, Any] = Body(...)):
-    """
-    Receives an alert payload (e.g., from Prometheus AlertManager webhook)
-    and triggers the AIOps agent to route it.
-    """
+@app.post("/diagnose_alert")
+async def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
     AGENT_RUN_COUNT.inc()
     alert_name = alert_payload.get("alerts", [{}])[0].get("labels", {}).get("alertname", "Unknown Alert")
+    alert_service = alert_payload.get("alerts", [{}])[0].get("labels", {}).get("service", "Unknown Service")
     alert_summary = alert_payload.get("alerts", [{}])[0].get("annotations", {}).get("summary", "No summary provided.")
     
-    alert_info = f"Alert '{alert_name}': {alert_summary}"
-
-    logger.info(f"Received alert from external system: '{alert_info}'")
+    alert_info_for_agent = f"Alert '{alert_name}' for service '{alert_service}': {alert_summary}"
+    logger.info(f"Received alert from external system for diagnosis: '{alert_info_for_agent}'")
     
     start_agent_run_time = time.time()
     try:
-        initial_state = AgentState(messages=[HumanMessage(content=f"Route this alert: {alert_info}")], alert_info=alert_info,
-                                   proposed_action="", human_feedback="", system_metrics={}, report_content="",
-                                   alert_severity="unknown", investigation_query="", investigation_step=0, max_investigation_steps=0, logs_found=False, final_result=None)
-        final_state = alert_router_agent_instance.invoke(initial_state)
+        initial_state = AgentState(
+            messages=[HumanMessage(content=f"Diagnose this alert: {alert_info_for_agent}")], 
+            alert_info=alert_info_for_agent,
+            alert_severity="unknown",
+            prometheus_data="", 
+            loki_logs="",       
+            grafana_link="",    
+            final_result=None,
+            investigation_query="", investigation_step=0, max_investigation_steps=0, logs_found=False,
+            proposed_action="", human_approval_needed=False, human_feedback="", system_metrics={}, report_content=""
+        )
+        
+        final_state = diagnostic_agent_instance.invoke(initial_state)
         agent_final_message = final_state['messages'][-1].content if final_state['messages'] else "No final message from agent."
-        
-        severity = final_state.get("alert_severity", "unknown")
-        AGENT_ALERT_SEVERED_COUNT.labels(severity=severity).inc()
-        
-        logger.info(f"Agent run completed. Final status: {agent_final_message}")
-        return {"status": "success", "agent_response": agent_final_message, "alert_severity": severity}
+        diagnosis_outcome = final_state.get("final_result", "unknown_outcome")
+
+        if "Critical" in agent_final_message or "escalated" in diagnosis_outcome: 
+            AGENT_DIAGNOSIS_COUNT.labels(outcome="escalated").inc()
+        elif "Solution" in agent_final_message or "solution_proposed" in diagnosis_outcome: 
+            AGENT_DIAGNOSIS_COUNT.labels(outcome="solution_proposed").inc()
+        else:
+            AGENT_DIAGNOSIS_COUNT.labels(outcome="info").inc()
+
+        logger.info(f"Agent diagnostic run completed. Final status: {agent_final_message}")
+        return {"status": "success", "agent_diagnosis": agent_final_message}
 
     except Exception as e:
-        AGENT_ERROR_COUNT.labels(endpoint="/receive_alert", error_type=type(e).__name__).inc()
-        logger.error(f"AIOps agent execution failure: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Agent execution failed: {e}")
+        AGENT_ERROR_COUNT.labels(endpoint="/diagnose_alert", error_type=type(e).__name__).inc()
+        AGENT_DIAGNOSIS_COUNT.labels(outcome="failed").inc()
+        logger.error(f"AIOps agent diagnosis failure: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Agent diagnostic failed: {e}")
     finally:
         agent_run_latency = time.time() - start_agent_run_time
-        logger.info(f"Agent run for alert '{alert_info}' took {agent_run_latency:.4f} seconds.")
+        logger.info(f"Agent diagnostic run for alert '{alert_name}' took {agent_run_latency:.4f} seconds.")
 
 @app.get("/metrics")
 async def prometheus_metrics():
     return Response(content=generate_latest(), media_type="text/plain")
-
-# # --- Simulate periodic internal events for logging and status ---
-# def periodic_internal_events():
-#     while True:
-#         time.sleep(random.uniform(15, 45)) # Every 15-45 seconds
-#         if random.random() < 0.1:
-#             logger.warning("AIOps Monitor Agent Service: Internal resource usage high warning.")
-#         if random.random() < 0.05:
-#             logger.error("AIOps Monitor Agent Service: Failed to connect to a dummy internal service.")
-#             AGENT_STATUS_GAUGE.set(0) # Agent might go offline
-#             time.sleep(random.uniform(5, 10)) # Stay offline for a bit
-#             AGENT_STATUS_GAUGE.set(1) # Then come back online
-#         logger.info("AIOps Monitor Agent Service: Performing routine self-check.")
-
-# import threading
-# threading.Thread(target=periodic_internal_events, daemon=True).start()
