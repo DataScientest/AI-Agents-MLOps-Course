@@ -83,9 +83,7 @@ deployed_diagnostic_tools = [
 ]
 logger.info(f"{len(deployed_diagnostic_tools)} tools available to the deployed AIOps Diagnostic Agent.")
 
-
 # --- Define the Diagnostic Agent LangGraph Workflow ---
-
 def llm_agent_node(state: AgentState) -> Dict[str, Any]:
     logger.info(f"Node 'llm_agent_node': Agent processing alert: {state['alert_info']}")
     
