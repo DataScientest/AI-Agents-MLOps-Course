@@ -12,12 +12,9 @@ class AgentState(TypedDict):
     Each key can be updated by the nodes.
     """
     messages: Annotated[List[BaseMessage], add_messages] 
-
     alert_info: str
     alert_severity: Literal["critical", "medium", "low", "unknown"]
-    
     prometheus_data: str
     loki_logs: str
     grafana_link: str
-
     final_result: Any

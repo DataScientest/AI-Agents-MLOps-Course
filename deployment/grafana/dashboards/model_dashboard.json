@@ -1,47 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "prometheus",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    }
-  ],
-  "__elements": {},
-  "__requires": [
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "12.1.1"
-    },
-    {
-      "type": "panel",
-      "id": "piechart",
-      "name": "Pie chart",
-      "version": ""
-    },
-    {
-      "type": "datasource",
-      "id": "prometheus",
-      "name": "Prometheus",
-      "version": "1.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "stat",
-      "name": "Stat",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "timeseries",
-      "name": "Time series",
-      "version": ""
-    }
-  ],
   "annotations": {
     "list": [
       {
@@ -61,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": null,
+  "id": 4,
   "links": [],
   "panels": [
     {
@@ -218,6 +175,10 @@
       "pluginVersion": "12.1.1",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-datasource"
+          },
           "disableTextWrap": false,
           "editorMode": "builder",
           "expr": "rate(input_text_length_chars_sum[1h]) / (rate(input_text_length_chars_count[1h]))",
@@ -226,11 +187,7 @@
           "legendFormat": "__auto",
           "range": true,
           "refId": "A",
-          "useBackend": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-datasource"
-          }
+          "useBackend": false
         }
       ],
       "title": "Average Input Text Length",
@@ -295,6 +252,10 @@
       "pluginVersion": "12.1.1",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-datasource"
+          },
           "disableTextWrap": false,
           "editorMode": "code",
           "expr": "model_accuracy_score * 100",
@@ -303,11 +264,7 @@
           "legendFormat": "__auto",
           "range": true,
           "refId": "A",
-          "useBackend": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-datasource"
-          }
+          "useBackend": false
         }
       ],
       "title": "Model Accuracy",
@@ -396,6 +353,10 @@
       "pluginVersion": "12.1.1",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-datasource"
+          },
           "disableTextWrap": false,
           "editorMode": "builder",
           "expr": "rate(prediction_confidence_score_sum[1h]) / (rate(prediction_confidence_score_count[1h]))",
@@ -404,11 +365,7 @@
           "legendFormat": "__auto",
           "range": true,
           "refId": "A",
-          "useBackend": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-datasource"
-          }
+          "useBackend": false
         }
       ],
       "title": "Avg Prediction Confidence",
@@ -474,7 +431,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(api_request_duration_seconds_sum{endpoint=\"/predict\"}[1h]) / (rate(api_request_duration_seconds_count{endpoint=\"/predict\"}[1h]))",
+          "expr": "rate(api_request_duration_seconds_sum{endpoint=\"/predict\", status_code=\"200\"}[1h]) / (rate(api_request_duration_seconds_count{endpoint=\"/predict\", status_code=\"200\"}[1h]))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "__auto",
@@ -544,6 +501,10 @@
       "pluginVersion": "12.1.1",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-datasource"
+          },
           "disableTextWrap": false,
           "editorMode": "builder",
           "expr": "model_precision_score",
@@ -553,11 +514,7 @@
           "legendFormat": "{{category}}",
           "range": true,
           "refId": "A",
-          "useBackend": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-datasource"
-          }
+          "useBackend": false
         }
       ],
       "title": "Precision by category",
@@ -621,6 +578,10 @@
       "pluginVersion": "12.1.1",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-datasource"
+          },
           "disableTextWrap": false,
           "editorMode": "builder",
           "expr": "model_f1_score",
@@ -630,11 +591,7 @@
           "legendFormat": "{{category}}",
           "range": true,
           "refId": "A",
-          "useBackend": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-datasource"
-          }
+          "useBackend": false
         }
       ],
       "title": "F1 by category",
@@ -698,6 +655,10 @@
       "pluginVersion": "12.1.1",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-datasource"
+          },
           "disableTextWrap": false,
           "editorMode": "builder",
           "expr": "model_recall_score",
@@ -707,30 +668,27 @@
           "legendFormat": "{{category}}",
           "range": true,
           "refId": "A",
-          "useBackend": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-datasource"
-          }
+          "useBackend": false
         }
       ],
       "title": "Recall by category",
       "type": "stat"
     }
   ],
+  "preload": false,
+  "refresh": "5s",
   "schemaVersion": 41,
   "tags": [],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-3h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "PromGraf MLOps - Model",
+  "title": "Model Dashboard",
   "uid": "28b3c037-525f-450f-b324-6dc66e9ec13c",
-  "version": 11,
-  "weekStart": ""
+  "version": 1
 }

@@ -31,7 +31,11 @@ app = FastAPI(
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Prometheus Metrics for the Agent Service ITSELF ---
+# --- Prometheus Metrics for the Agent Service ---
+LLM_MODEL_INFO = Gauge(
+    'aiops_monitor_agent_llm_model_info', 'Information about the LLM model used by the agent', ['model_name']
+)
+
 API_REQUEST_COUNT = Counter(
     'aiops_monitor_agent_api_requests_total', 'Total number of requests to the AIOps Monitor Agent API'
 )
@@ -66,7 +70,8 @@ try:
         model_name=os.getenv("GROQ_MODEL_NAME"),
         groq_api_key=GROQ_API_KEY
     )
-    logger.info("LLM for deployed monitor agent initialized successfully.")
+    LLM_MODEL_INFO.labels(model_name=llm_for_deployed_agent.model_name).set(1)
+    logger.info(f"LLM {llm_for_deployed_agent.model_name} for deployed monitor agent initialized successfully.")
 except Exception as e:
     logger.error(f"Error initializing LLM for deployed monitor agent: {e}", exc_info=True)
     exit(1)

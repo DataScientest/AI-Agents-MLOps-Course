@@ -1,47 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "prometheus",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    }
-  ],
-  "__elements": {},
-  "__requires": [
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "12.1.1"
-    },
-    {
-      "type": "panel",
-      "id": "piechart",
-      "name": "Pie chart",
-      "version": ""
-    },
-    {
-      "type": "datasource",
-      "id": "prometheus",
-      "name": "Prometheus",
-      "version": "1.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "stat",
-      "name": "Stat",
-      "version": ""
-    },
-    {
-      "type": "panel",
-      "id": "timeseries",
-      "name": "Time series",
-      "version": ""
-    }
-  ],
   "annotations": {
     "list": [
       {
@@ -61,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": null,
+  "id": 2,
   "links": [],
   "panels": [
     {
@@ -203,15 +160,15 @@
       "pluginVersion": "12.1.1",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-datasource"
+          },
           "editorMode": "code",
           "expr": "sum by(category) (predictions_by_category_total)",
           "legendFormat": "__auto",
           "range": true,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-datasource"
-          }
+          "refId": "A"
         }
       ],
       "title": "Prediction Distribution by Category",
@@ -271,19 +228,19 @@
       "pluginVersion": "12.1.1",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-datasource"
+          },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "api_request_duration_seconds_sum{endpoint=\"/predict\", method=\"POST\"} / api_request_duration_seconds_count{endpoint=\"/predict\", method=\"POST\"}",
+          "expr": "api_request_duration_seconds_sum{endpoint=\"/predict\", method=\"POST\", status_code=\"200\"} / api_request_duration_seconds_count{endpoint=\"/predict\", method=\"POST\", status_code=\"200\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "__auto",
           "range": true,
           "refId": "A",
-          "useBackend": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-datasource"
-          }
+          "useBackend": false
         }
       ],
       "title": "Average Latency - /predict",
@@ -343,6 +300,10 @@
       "pluginVersion": "12.1.1",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-datasource"
+          },
           "disableTextWrap": false,
           "editorMode": "builder",
           "expr": "api_request_duration_seconds_sum{endpoint=\"/evaluate\", method=\"POST\"} / api_request_duration_seconds_count{endpoint=\"/evaluate\", method=\"POST\"}",
@@ -351,11 +312,7 @@
           "legendFormat": "__auto",
           "range": true,
           "refId": "A",
-          "useBackend": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-datasource"
-          }
+          "useBackend": false
         }
       ],
       "title": "Average Latency - /evaluate",
@@ -415,6 +372,10 @@
       "pluginVersion": "12.1.1",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-datasource"
+          },
           "disableTextWrap": false,
           "editorMode": "builder",
           "expr": "sum(api_requests_total)",
@@ -423,11 +384,7 @@
           "legendFormat": "__auto",
           "range": true,
           "refId": "A",
-          "useBackend": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-datasource"
-          }
+          "useBackend": false
         }
       ],
       "title": "Requests",
@@ -494,6 +451,10 @@
       "pluginVersion": "12.1.1",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-datasource"
+          },
           "disableTextWrap": false,
           "editorMode": "builder",
           "expr": "rate(api_requests_total{status_code!=\"200\"}[1h]) / (rate(api_requests_total[1h]))",
@@ -502,11 +463,7 @@
           "legendFormat": "__auto",
           "range": true,
           "refId": "A",
-          "useBackend": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-datasource"
-          }
+          "useBackend": false
         }
       ],
       "title": "Requests Errors",
@@ -595,6 +552,10 @@
       "pluginVersion": "12.1.1",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-datasource"
+          },
           "disableTextWrap": false,
           "editorMode": "builder",
           "expr": "sum by(endpoint, status_code) (api_requests_total)",
@@ -603,11 +564,7 @@
           "legendFormat": "{{endpoint}} = {{status_code}}",
           "range": true,
           "refId": "A",
-          "useBackend": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-datasource"
-          }
+          "useBackend": false
         }
       ],
       "title": "Total API Requests",
@@ -661,26 +618,26 @@
           "values": false
         },
         "showPercentChange": false,
-        "textMode": "auto",
+        "textMode": "value_and_name",
         "wideLayout": true
       },
       "pluginVersion": "12.1.1",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-datasource"
+          },
           "disableTextWrap": false,
           "editorMode": "builder",
           "expr": "histogram_quantile(0.95, sum by(le) (rate(api_request_duration_seconds_bucket{endpoint=\"/predict\"}[1h])))",
           "format": "time_series",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{endpoint}}",
+          "legendFormat": "/predict",
           "range": true,
           "refId": "A",
-          "useBackend": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-datasource"
-          }
+          "useBackend": false
         },
         {
           "datasource": {
@@ -697,7 +654,7 @@
           "includeNullMetadata": true,
           "instant": false,
           "interval": "",
-          "legendFormat": "{{endpoint}}",
+          "legendFormat": "/evaluate",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -707,19 +664,20 @@
       "type": "stat"
     }
   ],
+  "preload": false,
+  "refresh": "5s",
   "schemaVersion": 41,
   "tags": [],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-3h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "PromGraf MLOps - API",
+  "title": "API Dashboard",
   "uid": "364e23d4-9655-4ae9-ac6a-baf04e0e1b6d",
-  "version": 3,
-  "weekStart": ""
+  "version": 1
 }
