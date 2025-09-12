@@ -1,4 +1,4 @@
-from typing import List, Annotated, Any, Literal
+from typing import List, Annotated, Any, Literal, Optional
 from typing_extensions import TypedDict
 from langchain_core.messages import BaseMessage
 
@@ -12,9 +12,16 @@ class AgentState(TypedDict):
     Each key can be updated by the nodes.
     """
     messages: Annotated[List[BaseMessage], add_messages] 
+
     alert_info: str
     alert_severity: Literal["critical", "medium", "low", "unknown"]
+
     prometheus_data: str
     loki_logs: str
     grafana_link: str
+
+    thread_id: Optional[str]
+    proposed_action: Optional[str]
+    human_feedback: Optional[str]
+
     final_result: Any
