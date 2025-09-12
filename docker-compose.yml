@@ -98,21 +98,7 @@ services:
       - loki
     restart: always
 
-  postgres:
-    image: postgres:15-alpine
-    container_name: postgres
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_DB=agent_checkpoints
-      - POSTGRES_USER=agent_user
-      - POSTGRES_PASSWORD=agent_password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: always
-
 volumes:
   prometheus_data: {}
   grafana_data: {}
   loki_data: {}
-  postgres_data: {}

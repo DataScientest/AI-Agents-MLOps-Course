@@ -20,9 +20,5 @@ class AgentState(TypedDict):
     prometheus_data: str
     loki_logs: str
     grafana_link: str
-
-    thread_id: Optional[str]
-    proposed_action: Optional[str]
-    human_feedback: Optional[str]
     
     final_result: Any

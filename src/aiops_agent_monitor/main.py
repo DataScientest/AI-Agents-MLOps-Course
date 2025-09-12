@@ -1,5 +1,4 @@
 import os
-import uuid
 import time
 import logging
 
@@ -13,7 +12,6 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, Base
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode 
-from langgraph.checkpoints.postgres import PostgresSaver
 
 from state import AgentState
 
@@ -85,18 +83,6 @@ deployed_diagnostic_tools = [
 ]
 logger.info(f"{len(deployed_diagnostic_tools)} tools available to the deployed AIOps Diagnostic Agent.")
 
-# --- Postgres connection for checkpointer ---
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
-POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
-POSTGRES_DB = os.getenv("POSTGRES_DB", "agent_checkpoints")
-POSTGRES_USER = os.getenv("POSTGRES_USER", "agent_user")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "agent_password")
-
-POSTGRES_CONN_STRING = (
-    f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
-    f"{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
-)
-
 # --- Define the Diagnostic Agent LangGraph Workflow ---
 def llm_agent_node(state: AgentState) -> Dict[str, Any]:
     logger.info(f"Node 'llm_agent_node': Agent processing alert: {state['alert_info']}")
@@ -115,11 +101,8 @@ def llm_agent_node(state: AgentState) -> Dict[str, Any]:
     
     llm_with_tools = llm_for_deployed_agent.bind_tools(deployed_diagnostic_tools)
     llm_chain = prompt_for_llm | llm_with_tools
-    
     result: BaseMessage = llm_chain.invoke({"messages": state['messages']})
-    
     logger.info(f"LLM produced result: {result}")
-    
     return {"messages": [result]}
 
 def finalize_diagnosis_node(state: AgentState) -> Dict[str, Any]:
@@ -163,7 +146,6 @@ diagnostic_workflow.add_conditional_edges(
 )
 diagnostic_workflow.add_edge("tool_executor", "llm_agent_node") 
 diagnostic_workflow.set_finish_point("finalize_diagnosis")
-
 diagnostic_agent_instance = diagnostic_workflow.compile()
 logger.info("MLOps Diagnostic Agent (LangGraph) instantiated successfully and compiled.")
 
