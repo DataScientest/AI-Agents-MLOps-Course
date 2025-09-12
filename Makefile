@@ -23,7 +23,7 @@ test-api:
 		-d '{"text": "What a spectacular shot from Steph Curry!"}'
 
 evaluation:
-	dockercompose up -d --build evaluation
+	docker compose up -d --build evaluation
 
 trigger-alert-critical:
 	@echo "Triggering a CRITICAL alert to the AIOps Monitor Agent Service..."

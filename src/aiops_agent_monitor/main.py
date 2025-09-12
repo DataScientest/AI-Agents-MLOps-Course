@@ -1,4 +1,5 @@
 import os
+import uuid
 import time
 import logging
 
@@ -12,6 +13,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, Base
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode 
+from langgraph.checkpoints.postgres import PostgresSaver
 
 from state import AgentState
 
@@ -82,6 +84,18 @@ deployed_diagnostic_tools = [
     GrafanaDashboardLink 
 ]
 logger.info(f"{len(deployed_diagnostic_tools)} tools available to the deployed AIOps Diagnostic Agent.")
+
+# --- Postgres connection for checkpointer ---
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "agent_checkpoints")
+POSTGRES_USER = os.getenv("POSTGRES_USER", "agent_user")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "agent_password")
+
+POSTGRES_CONN_STRING = (
+    f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
+    f"{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+)
 
 # --- Define the Diagnostic Agent LangGraph Workflow ---
 def llm_agent_node(state: AgentState) -> Dict[str, Any]:
