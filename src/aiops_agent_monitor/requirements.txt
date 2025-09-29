@@ -8,11 +8,6 @@ fastapi==0.116.1
 uvicorn[standard]==0.35.0
 prometheus_client==0.22.1
 pydantic==2.11.7
-<<<<<<< Updated upstream
-requests
-=======
 requests==2.32.5
-psycopg2-binary==2.9.10
 psycopg-binary==3.2.10
-sqlalchemy==2.0.43
->>>>>>> Stashed changes
+

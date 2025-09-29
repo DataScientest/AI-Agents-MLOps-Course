@@ -12,11 +12,7 @@ from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import StateGraph
-<<<<<<< Updated upstream
-from langgraph.prebuilt import ToolNode
-=======
 from langgraph.prebuilt import ToolNode 
->>>>>>> Stashed changes
 from langgraph.checkpoint.postgres import PostgresSaver
 
 from state import AgentState
@@ -178,12 +174,7 @@ diagnostic_workflow.add_conditional_edges(
 )
 diagnostic_workflow.add_edge("tool_executor", "llm_agent_node") 
 diagnostic_workflow.set_finish_point("finalize_diagnosis")
-<<<<<<< Updated upstream
-
-diagnostic_agent_instance = diagnostic_workflow.compile()
-=======
 diagnostic_agent_instance = diagnostic_workflow.compile(checkpointer=memory)
->>>>>>> Stashed changes
 logger.info("MLOps Diagnostic Agent (LangGraph) instantiated successfully and compiled.")
 
 # --- Middleware for request metrics ---
