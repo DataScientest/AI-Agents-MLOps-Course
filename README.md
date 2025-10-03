@@ -1,1 +1,1 @@
-# AI Agents MLOps Course - Chapter 4
+# AI Agents MLOps Course
