@@ -4,7 +4,7 @@ import logging
 from dotenv import load_dotenv
 
 from langchain import hub
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 from langchain_core.tools import Tool
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain.agents import AgentExecutor, create_react_agent
@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # --- Chargement des variables d'environnement ---
-load_dotenv()
+load_dotenv(override=True)
 
 def main():
     # --- 1. Récupération de la clé API Groq ---
@@ -25,12 +25,13 @@ def main():
         logger.error("La variable d'environnement GROQ_API_KEY n'est pas définie. Veuillez la configurer dans le fichier .env.")
         return
 
-    # --- 2. Initialisation du client Groq LLM ---
+    # --- 2. Initialisation du client Groq LLM via OpenAI-compatible endpoint ---
     try:
-        llm = ChatGroq(
+        llm = ChatOpenAI(
+            model="llama-3.1-8b-instant",
             temperature=0.7,
-            model_name="llama-3.1-8b-instant",
-            groq_api_key=groq_api_key
+            api_key=groq_api_key,
+            base_url="https://api.groq.com/openai/v1"
         )
         logger.info(f"Client Groq LLM '{llm.model_name}' initialisé avec succès.")
     except Exception as e:

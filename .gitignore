@@ -1,2 +1,51 @@
-.env
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environments
+env/
+venv/
 .venv/
+ENV/
+.venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.claude/
+docs/
+*.cover
+coverage.xml
+*.py,cover
+
+# Mypy cache
+.mypy_cache/
+
+# Pyre type checker
+.pyre/
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+
+# MacOS system files
+.DS_Store
+
+# Personal or sensitive files
+*.env
+src/simple_chat.py
