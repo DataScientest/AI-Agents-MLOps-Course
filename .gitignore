@@ -10,8 +10,6 @@ __pycache__/
 env/
 venv/
 .venv/
-ENV/
-.venv/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
@@ -25,8 +23,6 @@ htmlcov/
 .tox/
 .nox/
 .coverage
-.claude/
-docs/
 *.cover
 coverage.xml
 *.py,cover
@@ -49,3 +45,4 @@ coverage.xml
 # Personal or sensitive files
 *.env
 src/simple_chat.py
+tests/
