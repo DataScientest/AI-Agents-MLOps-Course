@@ -2,6 +2,7 @@ import logging
 import requests
 import time
 import os 
+import re
 
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -92,7 +93,14 @@ def LokiLogSearch(query: str, time_range_minutes: int, limit: int, target_servic
     and optionally 'limit' (int) and 'target_service' (str).
     Example: {'query': '{job=\"docker\"}', 'time_range_minutes': 15, 'limit': 20}.
     """
-    logger.info(f"Function 'LokiLogSearch' called with query: '{query}', limit: {limit}, service: {target_service}")
+    original_query = query
+    full_query = _augment_loki_query(query or "", target_service)
+    logger.info(
+        "Function 'LokiLogSearch' called with query: '%s', limit: %s, service: %s",
+        full_query,
+        limit,
+        target_service,
+    )
     try:
         if time_range_minutes <= 0:
             raise ValueError("time_range_minutes must be positive.")
@@ -100,8 +108,6 @@ def LokiLogSearch(query: str, time_range_minutes: int, limit: int, target_servic
             limit = 10 
         end_time_ns_int = int(time.time() * 1e9)
         start_time_ns_int = int(end_time_ns_int - (time_range_minutes * 60 * 1e9))
-        
-        full_query = query
         
         params = {
             "query": full_query,
@@ -132,6 +138,49 @@ def LokiLogSearch(query: str, time_range_minutes: int, limit: int, target_servic
     except Exception as e:
         logger.error(f"An unexpected error occurred during LokiLogSearch: {e}", exc_info=True)
         return f"An unexpected error occurred: {e}"
+
+
+def _augment_loki_query(query: str, target_service: Optional[str]) -> str:
+    """Ensure Loki queries include default service/job labels when target_service is provided."""
+    if not target_service:
+        return query.strip()
+
+    stripped = (query or "").strip()
+    default_selector = f'{"{"}job="docker", service="{target_service}"{"}"}'
+
+    if not stripped:
+        return default_selector
+
+    match = re.match(r'^\{([^}]*)\}(.*)$', stripped)
+    if not match:
+        # No selector present, prepend one
+        return f"{default_selector} {stripped}" if stripped else default_selector
+
+    labels_part, remainder = match.groups()
+
+    segments = [seg.strip() for seg in re.split(r',(?![^\"]*\")', labels_part) if seg.strip()]
+    ordered_keys = []
+    values = {}
+
+    for segment in segments:
+        if '=' not in segment:
+            continue
+        key, value = segment.split('=', 1)
+        key = key.strip()
+        if key not in values:
+            ordered_keys.append(key)
+        values[key] = value.strip()
+
+    if 'service' not in values:
+        ordered_keys.append('service')
+        values['service'] = f'"{target_service}"'
+
+    if 'job' not in values:
+        ordered_keys.append('job')
+        values['job'] = '"docker"'
+
+    rebuilt_labels = ', '.join(f"{key}={values[key]}" for key in ordered_keys)
+    return f'{{{rebuilt_labels}}}{remainder}'
 
 # --- Grafana Dashboard Link Tool ---
 class GrafanaDashboardLinkInput(BaseModel):
