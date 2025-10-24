@@ -46,3 +46,5 @@ coverage.xml
 *.env
 src/simple_chat.py
 tests/
+src/nodes/linear_agent/generate_report_bis.py
+src/nodes/linear_agent/get_cpu_metrics_bis.py
