@@ -44,20 +44,22 @@ if [ "$branch_switch" = "1" ]; then
         # Backup .env if it exists
         [ -f .env ] && cp .env .env.bak
         
+        # CRITICAL: Only clean UNTRACKED files, NEVER use -X flag
         # Clean untracked files and directories, excluding:
         # - .env.bak (temporary backup)
         # - en/ (course content folder)
+        # - docs/ (documentation folder)
         # - .env_template (template file)
-        git clean -fd -e .env.bak -e en/ -e .env_template -q
+        git clean -fd -e .env.bak -e en/ -e docs/ -e .env_template -q
         
-        # Remove __pycache__ directories (ignored files)
-        find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+        # Remove ONLY __pycache__ directories, avoid en/ and docs/
+        find . -type d -name "__pycache__" -not -path "./en/*" -not -path "./docs/*" -exec rm -rf {} + 2>/dev/null || true
         
         # Restore .env
         [ -f .env.bak ] && mv .env.bak .env
         
         echo "✅ Workspace cleaned for $new_branch"
-        echo "   Preserved: .env, en/ folder"
+        echo "   Preserved: .env, en/, docs/ folders"
         echo ""
     fi
 fi
@@ -72,6 +74,8 @@ echo "📋 What this does:"
 echo "   • Automatically cleans workspace when switching chapter branches"
 echo "   • Preserves your .env file (API keys)"
 echo "   • Preserves your en/ folder (course content)"
+echo "   • Preserves your docs/ folder (documentation)"
+echo "   • Only removes UNTRACKED files (never touches ignored files)"
 echo "   • Only activates when switching to chapter-1, chapter-2, chapter-3, etc."
 echo ""
 echo "🎯 Try it out:"
