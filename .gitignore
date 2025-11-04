@@ -43,5 +43,5 @@ coverage.xml
 .DS_Store
 
 # Personal or sensitive files
-*.env
+.env
 
