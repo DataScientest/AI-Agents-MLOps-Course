@@ -32,12 +32,19 @@ prev_ref=$1
 new_ref=$2
 branch_switch=$3
 
+# Optional: Sync protected folders to external backup (if script exists)
+SYNC_SCRIPT="$(dirname "$(git rev-parse --git-dir)")/../.sync-protected-folders.sh"
+[ -x "$SYNC_SCRIPT" ] && "$SYNC_SCRIPT" sync 2>/dev/null &
+
 # Only run on branch switches (not file checkouts)
 if [ "$branch_switch" = "1" ]; then
     new_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
     
     # Only clean when switching to a chapter branch
     if [[ "$new_branch" =~ ^chapter-[0-9]+$ ]]; then
+        # Optional: Restore protected folders if missing (if script exists)
+        [ -x "$SYNC_SCRIPT" ] && "$SYNC_SCRIPT" restore 2>/dev/null
+        
         echo ""
         echo "🧹 Cleaning workspace for $new_branch..."
         
