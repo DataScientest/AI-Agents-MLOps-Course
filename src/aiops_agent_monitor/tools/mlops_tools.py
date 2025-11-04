@@ -33,25 +33,27 @@ def PrometheusQuery(query: str, time_range_minutes: int, step_seconds: int, targ
     'step_seconds' (int), and optionally 'target_service' (str).
     Example: {'query': 'rate(node_cpu_seconds_total[5m])', 'time_range_minutes': 15}.
     """
+    # Get URL at runtime to support environment variable overrides
+    prom_url = os.getenv("PROMETHEUS_URL", PROMETHEUS_URL)
     logger.info(f"Tool 'PrometheusQuery' called with query: '{query}', range: {time_range_minutes}m, service: {target_service}")
     try:
         if time_range_minutes <= 0:
             raise ValueError("time_range_minutes must be positive.")
         if step_seconds <= 0:
             raise ValueError("step_seconds must be positive.")
-        
+
         full_query = query
         end_time = int(time.time())
         start_time = end_time - (time_range_minutes * 60)
-        
+
         params = {
             "query": full_query,
             "start": start_time,
             "end": end_time,
             "step": f"{step_seconds}s"
         }
-        
-        response = requests.get(f"{PROMETHEUS_URL}/api/v1/query_range", params=params, timeout=10)
+
+        response = requests.get(f"{prom_url}/api/v1/query_range", params=params, timeout=10)
         response.raise_for_status() 
         
         data = response.json()
@@ -70,7 +72,7 @@ def PrometheusQuery(query: str, time_range_minutes: int, step_seconds: int, targ
             return "Prometheus query: No data found for the given query and time range."
     
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error querying Prometheus at {PROMETHEUS_URL}: {e}")
+        logger.error(f"Error querying Prometheus at {prom_url}: {e}")
         return f"Failed to query Prometheus: {e}"
     except Exception as e:
         logger.error(f"An unexpected error occurred during PrometheusQuery: {e}", exc_info=True)
@@ -84,7 +86,7 @@ class LokiLogSearchInput(BaseModel):
     limit: int = Field(default=10, description="Maximum number of log lines to return.")
     target_service: Optional[str] = Field(default=None, description="The specific service to filter logs for, e.g., 'news-classifier-api'.")
 
-@tool(args_schema=LokiLogSearchInput) 
+@tool(args_schema=LokiLogSearchInput)
 def LokiLogSearch(query: str, time_range_minutes: int, limit: int, target_service: Optional[str] = None) -> str:
     """
     Executes a LogQL query on Loki to retrieve log entries.
@@ -93,6 +95,8 @@ def LokiLogSearch(query: str, time_range_minutes: int, limit: int, target_servic
     and optionally 'limit' (int) and 'target_service' (str).
     Example: {'query': '{job=\"docker\"}', 'time_range_minutes': 15, 'limit': 20}.
     """
+    # Get URL at runtime to support environment variable overrides
+    loki_url = os.getenv("LOKI_URL", LOKI_URL)
     original_query = query
     full_query = _augment_loki_query(query or "", target_service)
     logger.info(
@@ -116,7 +120,7 @@ def LokiLogSearch(query: str, time_range_minutes: int, limit: int, target_servic
             "limit": limit
         }
         
-        response = requests.get(f"{LOKI_URL}/loki/api/v1/query_range", params=params, timeout=10)
+        response = requests.get(f"{loki_url}/loki/api/v1/query_range", params=params, timeout=10)
         response.raise_for_status()
         
         data = response.json()
@@ -133,7 +137,7 @@ def LokiLogSearch(query: str, time_range_minutes: int, limit: int, target_servic
             return "Loki log search: No logs found for the given query and time range."
     
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error querying Loki at {LOKI_URL}: {e}")
+        logger.error(f"Error querying Loki at {loki_url}: {e}")
         return f"Failed to query Loki: {e}"
     except Exception as e:
         logger.error(f"An unexpected error occurred during LokiLogSearch: {e}", exc_info=True)
@@ -198,15 +202,17 @@ def GrafanaDashboardLink(dashboard_uid: str, time_range_minutes: int, service_fi
     and optionally 'service_filter' (str).
     Example input: {'dashboard_uid': 'news_classifier_health', 'time_range_minutes': 60, 'service_filter': 'news-classifier-api'}.
     """
+    # Get URL at runtime to support environment variable overrides
+    grafana_url = os.getenv("GRAFANA_URL", GRAFANA_URL)
     logger.info(f"Function 'GrafanaDashboardLink' called for dashboard_uid: '{dashboard_uid}', range: {time_range_minutes}m, filter: {service_filter}")
     try:
         if time_range_minutes <= 0:
             raise ValueError("time_range_minutes must be positive.")
         
-        to_time = int(time.time() * 1000) 
+        to_time = int(time.time() * 1000)
         from_time = to_time - (time_range_minutes * 60 * 1000)
 
-        base_url = f"{GRAFANA_URL}/d/{dashboard_uid}" 
+        base_url = f"{grafana_url}/d/{dashboard_uid}" 
         params = {
             "from": from_time,
             "to": to_time,

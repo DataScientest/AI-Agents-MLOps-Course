@@ -11,7 +11,7 @@ env/
 venv/
 .venv/
 
-# Jupyter Notebook checkpoints
+# Jupyter Notebook checkpointsé&
 .ipynb_checkpoints/
 
 # Logs and databases
@@ -49,4 +49,11 @@ src/agents/
 src/nodes/
 src/tools/
 src/simple_chat.py
-tests/
+src/aiops_agent_monitor/tools/mlops_tools_secure.py
+
+scripts/diagnose_langsmith.py
+scripts/__pycache__/show_agent_steps.cpython-314.pyc
+#scripts/test_diagnostic_agent.py
+scripts/test_langsmith_simple.py
+scripts/show_langsmith_urls.py
+scripts/show_agent_steps.py
