@@ -50,6 +50,9 @@ if [ "$branch_switch" = "1" ]; then
         # - .env_template (template file)
         git clean -fd -e .env.bak -e en/ -e .env_template -q
         
+        # Also remove ignored files (__pycache__, etc.) but preserve .env and en/
+        git clean -fdX -e .env.bak -e en/ -e .env_template -q
+        
         # Restore .env
         [ -f .env.bak ] && mv .env.bak .env
         
