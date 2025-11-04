@@ -20,6 +20,16 @@ The goal is to demonstrate the practical integration of AI agents with AIOps too
 
 This project uses Docker Compose for service orchestration and a `Makefile` for simplified commands.
 
+### 0. First-Time Setup (Recommended)
+
+**After cloning this repository, run this command once to enable automatic workspace cleanup:**
+
+```bash
+bash scripts/setup-git-hooks.sh
+```
+
+This installs a Git hook that automatically cleans your workspace when switching between chapter branches, while preserving your `.env` file and `en/` folder. This ensures a clean slate when moving between chapters.
+
 ### 1. Prerequisites
 
 *   **Groq API Key:** Obtain a key from [Groq Cloud](https://console.groq.com/keys) and add it to your `.env` file.
