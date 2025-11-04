@@ -26,6 +26,16 @@ AI-Agents-MLOps-Course/
 
 This project uses `uv` for dependency management and `Makefile` for simplified commands.
 
+### 0. First-Time Setup (Recommended)
+
+**After cloning this repository, run this command once to enable automatic workspace cleanup:**
+
+```bash
+bash scripts/setup-git-hooks.sh
+```
+
+This installs a Git hook that automatically cleans your workspace when switching between chapter branches, while preserving your `.env` file and `en/` folder. This ensures a clean slate when moving between chapters.
+
 ### 1. Prerequisites
 
 *   **Python 3.9+** installed.
