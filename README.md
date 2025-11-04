@@ -6,10 +6,17 @@ This branch provides the **completed solution** for Chapter 4. It focuses on end
 
 Chapter 4 introduces the concept of multi-level agent memory. This solution specifically demonstrates:
 -   **Session Memory (Checkpoints):** Persistent storage of the agent's `AgentState` in PostgreSQL. This allows the agent to maintain its context and resume execution even after restarts or interruptions.
--   **Checkpointing with PostgreSQL:** Configuration of `PostgresSaver` to automatically save and load the agent's state for each diagnostic session (`thread_id`).
+-   **Checkpointing with PostgreSQL:** Configuration of `PostgresSaver` with `ConnectionPool` to automatically save and load the agent's state for each diagnostic session (`thread_id`).
+-   **Modular Architecture:** Clean separation of concerns with dedicated modules for nodes, agents, prompts, and tools (combining Chapter 3's structure with Chapter 4's memory features).
 -   **Resilience:** The agent's diagnostic process is now resilient to service restarts, as its state is preserved in the database.
 
 The goal is to provide a solid foundation for building intelligent agents that can manage long-running tasks and maintain context across invocations, which is critical for complex AIOps scenarios.
+
+## Architecture Highlights
+
+- **Modular Code Structure:** Separate `nodes/`, `agents/`, `prompts/`, and `tools/` modules for maintainability
+- **PostgreSQL Checkpointing:** Uses `psycopg_pool.ConnectionPool` for efficient connection management
+- **Production-Ready:** FastAPI application with proper connection pooling and error handling
 
 ## How to Set Up and Run the Solution
 
@@ -62,7 +69,7 @@ This command will build all Docker images and deploy the entire AIOps stack, inc
 ### 4. Interact and Observe the Solution
 
 *   **Access Monitoring Dashboards (Grafana)**
-    Open your browser and navigate to `http://localhost:3000` (admin/admin).
+    Open your browser and navigate to `http://localhost:3001` (admin/admin).
     -   Explore the "News Classifier API Health Dashboard".
     -   Explore the "AIOps Monitor Agent Health Dashboard".
     -   Explore the "LangGraph Checkpoints - PostgreSQL Health" dashboard to see checkpoint activity.
@@ -78,13 +85,63 @@ This command will build all Docker images and deploy the entire AIOps stack, inc
     -   Click on a specific "Run" to view the execution flow.
     -   Check the PostgreSQL tables for checkpoint data to confirm persistence.
 
-### 5. Management Commands
+### 5. Testing PostgreSQL Memory/Checkpointing
+
+To verify that the agent is using PostgreSQL for persistent memory:
+
+**Step 1: Send an alert to the agent**
+```bash
+curl -X POST http://localhost:8005/diagnose_alert \
+  -H "Content-Type: application/json" \
+  -d '{
+    "alerts": [{
+      "labels": {"alertname": "HighCPUUsage", "service": "news-classifier-api"},
+      "annotations": {"summary": "CPU usage above 80%"},
+      "fingerprint": "test_memory_001"
+    }]
+  }'
+```
+
+**Step 2: Check PostgreSQL for checkpoints**
+```bash
+docker exec postgres psql -U agent_user -d agent_checkpoints -c \
+  "SELECT COUNT(*) as checkpoint_count FROM checkpoints WHERE thread_id = 'alert_diagnosis_test_memory_001';"
+```
+
+You should see multiple checkpoints (typically 10+), confirming that each step of the agent's execution was persisted.
+
+**Step 3: View checkpoint chain**
+```bash
+docker exec postgres psql -U agent_user -d agent_checkpoints -c \
+  "SELECT checkpoint_id, parent_checkpoint_id FROM checkpoints WHERE thread_id = 'alert_diagnosis_test_memory_001' ORDER BY checkpoint_id LIMIT 5;"
+```
+
+This shows the parent-child relationship between checkpoints, demonstrating the execution flow.
+
+**Step 4: Inspect checkpoint data**
+```bash
+docker exec postgres psql -U agent_user -d agent_checkpoints -c \
+  "SELECT checkpoint_id, checkpoint->'channel_values'->>'messages' as messages FROM checkpoints WHERE thread_id = 'alert_diagnosis_test_memory_001' LIMIT 1;"
+```
+
+**What this demonstrates:**
+- ✅ Each agent execution step creates a checkpoint in PostgreSQL
+- ✅ The agent can resume from any checkpoint if interrupted
+- ✅ Multiple invocations with the same `thread_id` maintain conversation history
+- ✅ State is persisted even if the service restarts
+- ✅ Uses ConnectionPool for efficient connection management
+
+### 6. Management Commands
 
 *   **Stop monitoring stack and services:**
     ```bash
-    make stop
+    docker compose down
     ```
-*   **Clean up Docker resources (containers, volumes, images):**
+*   **View agent logs:**
     ```bash
-    make clean
+    docker logs ai-agents-mlops-course-aiops-agent-monitor-1 -f
+    ```
+*   **Access PostgreSQL directly:**
+    ```bash
+    docker exec -it postgres psql -U agent_user -d agent_checkpoints
     ```
