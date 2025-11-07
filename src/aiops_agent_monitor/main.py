@@ -87,7 +87,9 @@ def init_llm() -> ChatGroq:
 
 
 def init_tools() -> list:
-    tools = [PrometheusQuery, LokiLogSearch, GrafanaDashboardLink]
+    # Chapter 3 tools + Chapter 4 RAG tool
+    from tools.mlops_tools import RAGKnowledgeSearch
+    tools = [PrometheusQuery, LokiLogSearch, GrafanaDashboardLink, RAGKnowledgeSearch]
     tool_names = [getattr(tool, "name", getattr(tool, "__name__", repr(tool))) for tool in tools]
     logger.info("Registered diagnostic tools: %s", ", ".join(tool_names))
     return tools
@@ -140,7 +142,7 @@ def classify_outcome(final_message: str, final_result: str | None) -> str:
     return "info"
 
 
-def build_initial_state(alert_info: str, thread_id: str) -> AgentState:
+def build_initial_state(alert_info: str, thread_id: str, diagnosis_id: str) -> AgentState:
     return AgentState(
         messages=[HumanMessage(content=f"Diagnose this alert: {alert_info}")],
         alert_info=alert_info,
@@ -148,6 +150,12 @@ def build_initial_state(alert_info: str, thread_id: str) -> AgentState:
         prometheus_data="",
         loki_logs="",
         grafana_link="",
+        # Chapter 4 - RAG and learning fields
+        rag_similar_incidents=None,
+        historical_context_used=False,
+        diagnosis_id=diagnosis_id,
+        confidence_score=None,
+        recommended_action="unknown",
         final_result=None,
         investigation_query="",
         investigation_step=0,
@@ -210,11 +218,14 @@ async def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
     logger.info("Received alert for diagnosis: %s", alert_info)
 
     thread_id = f"alert_diagnosis_{fingerprint}"
+    diagnosis_id = f"diag-{uuid.uuid4().hex[:12]}"  # Unique diagnosis ID
     config = {"configurable": {"thread_id": thread_id}}
     start_time = time.time()
-    
+
     try:
-        final_state = DIAGNOSTIC_AGENT.invoke(build_initial_state(alert_info, thread_id), config=config)
+        final_state = DIAGNOSTIC_AGENT.invoke(
+            build_initial_state(alert_info, thread_id, diagnosis_id), config=config
+        )
         messages = final_state.get("messages", [])
         final_message = (
             messages[-1].content
@@ -228,6 +239,9 @@ async def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
             "status": "success",
             "agent_diagnosis": final_message,
             "thread_id": thread_id,
+            "diagnosis_id": diagnosis_id,  # For feedback tracking
+            "confidence_score": final_state.get("confidence_score"),
+            "recommended_action": final_state.get("recommended_action"),
             "current_agent_state": final_state,
         }
 
@@ -243,6 +257,105 @@ async def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
 @app.get("/metrics")
 async def prometheus_metrics():
     return Response(content=generate_latest(), media_type="text/plain")
+
+
+# --- Chapter 4 - Part 3: Feedback Loop Endpoint ---
+@app.post("/feedback")
+async def record_feedback(feedback_data: Dict[str, Any] = Body(...)):
+    """
+    Record feedback on a diagnosis to enable continuous learning.
+
+    Expected payload:
+    {
+        "diagnosis_id": "diag-abc123",
+        "outcome": "success" | "partial_success" | "failure" | "escalated",
+        "human_correction": "Optional explanation",
+        "corrected_root_cause": "Optional corrected diagnosis",
+        "corrected_solution": "Optional corrected solution",
+        "add_to_knowledge_base": true  # If true, adds successful resolution to KB
+    }
+    """
+    logger.info(f"Received feedback for diagnosis: {feedback_data.get('diagnosis_id')}")
+
+    try:
+        from knowledge_base import get_kb_client, DiagnosisFeedback, Incident
+        from datetime import datetime
+
+        diagnosis_id = feedback_data.get("diagnosis_id")
+        if not diagnosis_id:
+            raise ValueError("diagnosis_id is required")
+
+        outcome = feedback_data.get("outcome")
+        if outcome not in ["success", "partial_success", "failure", "escalated"]:
+            raise ValueError(
+                "outcome must be one of: success, partial_success, failure, escalated"
+            )
+
+        # Create feedback record
+        feedback = DiagnosisFeedback(
+            diagnosis_id=diagnosis_id,
+            thread_id=feedback_data.get("thread_id", ""),
+            alert_info=feedback_data.get("alert_info", ""),
+            service_name=feedback_data.get("service_name"),
+            alert_type=feedback_data.get("alert_type"),
+            proposed_root_cause=feedback_data.get("proposed_root_cause"),
+            proposed_solution=feedback_data.get("proposed_solution"),
+            confidence_score=feedback_data.get("confidence_score"),
+            outcome=outcome,
+            human_correction=feedback_data.get("human_correction"),
+            corrected_root_cause=feedback_data.get("corrected_root_cause"),
+            corrected_solution=feedback_data.get("corrected_solution"),
+            diagnosed_at=datetime.fromisoformat(feedback_data.get("diagnosed_at", datetime.now().isoformat())),
+            feedback_received_at=datetime.now(),
+        )
+
+        # Record in database (triggers automatic stats update via DB trigger)
+        kb_client = get_kb_client()
+        feedback_id = kb_client.record_diagnosis_feedback(feedback)
+        logger.info(f"Recorded feedback with id={feedback_id}")
+
+        # If successful and user wants to add to KB, create incident entry
+        if feedback_data.get("add_to_knowledge_base", False) and outcome in [
+            "success",
+            "partial_success",
+        ]:
+            incident = Incident(
+                incident_id=diagnosis_id,
+                service_name=feedback_data.get("service_name", "unknown"),
+                alert_type=feedback_data.get("alert_type", "unknown"),
+                severity=feedback_data.get("severity", "medium"),
+                summary=feedback_data.get("alert_info", ""),
+                root_cause=feedback_data.get("corrected_root_cause")
+                or feedback_data.get("proposed_root_cause", ""),
+                solution=feedback_data.get("corrected_solution")
+                or feedback_data.get("proposed_solution", ""),
+                occurred_at=datetime.fromisoformat(feedback_data.get("diagnosed_at", datetime.now().isoformat())),
+                resolved_at=datetime.now(),
+                resolution_time_seconds=feedback_data.get("resolution_time_seconds", 0),
+            )
+            incident_id = kb_client.add_incident(incident)
+            logger.info(f"Added incident to knowledge base: {incident_id}")
+
+            return {
+                "status": "success",
+                "message": "Feedback recorded and added to knowledge base",
+                "feedback_id": feedback_id,
+                "incident_id": incident_id,
+            }
+        else:
+            return {
+                "status": "success",
+                "message": "Feedback recorded",
+                "feedback_id": feedback_id,
+            }
+
+    except ValueError as e:
+        logger.error(f"Validation error in feedback: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+    except Exception as e:
+        logger.exception(f"Error recording feedback: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to record feedback: {e}")
 
 
 __all__ = ["app"]

@@ -1,0 +1,16 @@
+FROM python:3.12-slim
+
+WORKDIR /docker-entrypoint-initdb.d
+
+# Install PostgreSQL client and Python dependencies
+RUN apt-get update && apt-get install -y postgresql-client curl && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir psycopg[binary]==3.2.10 pgvector==0.4.1 requests==2.32.5
+
+# Copy scripts and data
+COPY deployment/postgres/load_sample_incidents.py .
+COPY deployment/postgres/load_sample_data.sh .
+COPY data/ ./data/
+
+RUN chmod +x load_sample_data.sh
+
+CMD ["./load_sample_data.sh"]

@@ -228,9 +228,115 @@ def GrafanaDashboardLink(dashboard_uid: str, time_range_minutes: int, service_fi
         logger.info(f"Generated Grafana link: {full_url}")
         return f"Grafana Dashboard Link: {full_url}"
     
-    except requests.exceptions.RequestException as e: 
+    except requests.exceptions.RequestException as e:
         logger.error(f"GrafanaDashboardLink error: {e}")
         return f"Input validation error for GrafanaDashboardLink: {e}"
     except Exception as e:
         logger.error(f"An unexpected error occurred during GrafanaDashboardLink: {e}", exc_info=True)
         return f"An unexpected error occurred: {e}"
+
+
+# --- RAG Knowledge Search Tool (Chapter 4 - Part 2) ---
+class RAGKnowledgeSearchInput(BaseModel):
+    """Schema for RAGKnowledgeSearch tool input."""
+    query: str = Field(
+        description="The query describing the current incident, e.g., 'high CPU usage after deployment'."
+    )
+    service_name: Optional[str] = Field(
+        default=None,
+        description="Filter results to specific service, e.g., 'news-classifier-api'."
+    )
+    alert_type: Optional[str] = Field(
+        default=None,
+        description="Filter results to specific alert type, e.g., 'HighCPULoad'."
+    )
+    top_k: int = Field(
+        default=3,
+        description="Number of similar incidents to retrieve (1-10)."
+    )
+
+
+@tool(args_schema=RAGKnowledgeSearchInput)
+def RAGKnowledgeSearch(
+    query: str,
+    service_name: Optional[str] = None,
+    alert_type: Optional[str] = None,
+    top_k: int = 3
+) -> str:
+    """
+    Search the knowledge base for similar past incidents using semantic search.
+
+    This tool retrieves historical incidents that are semantically similar to the
+    current problem, along with their root causes and solutions. Use this when
+    diagnosing an alert to learn from past resolutions.
+
+    Returns:
+        Formatted text with similar incidents, their solutions, and success rates.
+
+    Example:
+        RAGKnowledgeSearch(
+            query="CPU spiking to 95% during deployment",
+            service_name="news-classifier-api",
+            top_k=3
+        )
+    """
+    logger.info(
+        f"RAGKnowledgeSearch called: query='{query[:50]}...', "
+        f"service={service_name}, alert_type={alert_type}, top_k={top_k}"
+    )
+
+    try:
+        # Input validation
+        if not query or len(query.strip()) == 0:
+            raise ValueError("Query cannot be empty")
+
+        if top_k < 1 or top_k > 10:
+            raise ValueError("top_k must be between 1 and 10")
+
+        # Import here to avoid circular dependency
+        from knowledge_base import get_kb_client
+
+        # Get knowledge base client (automatically chooses PostgreSQL or HTTP based on config)
+        kb_client = get_kb_client()
+
+        # Search for similar incidents
+        similar_incidents = kb_client.search_similar_incidents(
+            query=query,
+            service_name=service_name,
+            alert_type=alert_type,
+            top_k=top_k,
+        )
+
+        # Format results for LLM
+        if not similar_incidents:
+            return (
+                f"No similar incidents found in knowledge base for query: '{query}'\n"
+                f"This might be a new type of incident. Proceed with standard diagnostic workflow."
+            )
+
+        result = f"Found {len(similar_incidents)} similar incident(s) in knowledge base:\n\n"
+
+        for i, similar in enumerate(similar_incidents, 1):
+            result += f"--- Incident {i} ---\n"
+            result += similar.to_text_summary()
+            result += "\n\n"
+
+        result += (
+            "Recommendation: Review these past incidents to see if their solutions "
+            "apply to the current situation. Pay attention to incidents with high "
+            "similarity scores and success rates."
+        )
+
+        logger.info(f"RAGKnowledgeSearch returned {len(similar_incidents)} incidents")
+        return result
+
+    except ValueError as e:
+        logger.error(f"Validation error in RAGKnowledgeSearch: {e}")
+        return f"Input validation error: {e}"
+
+    except Exception as e:
+        logger.exception(f"Error in RAGKnowledgeSearch: {e}")
+        return (
+            f"An error occurred while searching knowledge base: {e}\n"
+            f"Proceeding without historical context."
+        )
