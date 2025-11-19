@@ -250,18 +250,14 @@ class RAGKnowledgeSearchInput(BaseModel):
         default=None,
         description="Filter results to specific alert type, e.g., 'HighCPULoad'."
     )
-    top_k: int = Field(
-        default=3,
-        description="Number of similar incidents to retrieve (1-10)."
-    )
+    # Note: top_k is hardcoded to 3 to avoid LLM type validation issues
 
 
 @tool(args_schema=RAGKnowledgeSearchInput)
 def RAGKnowledgeSearch(
     query: str,
     service_name: Optional[str] = None,
-    alert_type: Optional[str] = None,
-    top_k: int = 3
+    alert_type: Optional[str] = None
 ) -> str:
     """
     Search the knowledge base for similar past incidents using semantic search.
@@ -276,14 +272,16 @@ def RAGKnowledgeSearch(
     Example:
         RAGKnowledgeSearch(
             query="CPU spiking to 95% during deployment",
-            service_name="news-classifier-api",
-            top_k=3
+            service_name="news-classifier-api"
         )
     """
     logger.info(
         f"RAGKnowledgeSearch called: query='{query[:50]}...', "
-        f"service={service_name}, alert_type={alert_type}, top_k={top_k}"
+        f"service={service_name}, alert_type={alert_type}"
     )
+
+    # Hardcode top_k to avoid LLM type validation issues with Groq API
+    top_k = 3
 
     try:
         # Input validation
