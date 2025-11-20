@@ -89,7 +89,13 @@ def init_llm() -> ChatGroq:
 def init_tools() -> list:
     # Chapter 3 tools + Chapter 4 RAG tool
     from tools.mlops_tools import RAGKnowledgeSearch
-    tools = [PrometheusQuery, LokiLogSearch, GrafanaDashboardLink, RAGKnowledgeSearch]
+    tools = [PrometheusQuery, LokiLogSearch, GrafanaDashboardLink]
+    
+    # Dynamically enable RAG tool based on environment variable
+    enable_rag = os.getenv("ENABLE_RAG_TOOL", "true").lower() == "true"
+    if enable_rag:
+        tools.append(RAGKnowledgeSearch)
+    
     tool_names = [getattr(tool, "name", getattr(tool, "__name__", repr(tool))) for tool in tools]
     logger.info("Registered diagnostic tools: %s", ", ".join(tool_names))
     return tools
@@ -253,6 +259,44 @@ async def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
     finally:
         duration = time.time() - start_time
         logger.info("Agent diagnostic run for alert took %.4f seconds.", duration)
+
+@app.post("/resume_diagnosis/{thread_id}")
+async def resume_diagnosis(thread_id: str):
+    """
+    Resume a diagnosis session from a checkpoint.
+    
+    Passing None as input tells LangGraph: "Don't start new work, just load the state 
+    from the checkpoint and continue if there's work left, or return the state if finished."
+    """
+    logger.info(f"Resuming diagnosis for thread_id: {thread_id}")
+    
+    config = {"configurable": {"thread_id": thread_id}}
+    start_time = time.time()
+    
+    try:
+        # Invoke with None to resume from checkpoint
+        final_state = DIAGNOSTIC_AGENT.invoke(None, config=config)
+        messages = final_state.get("messages", [])
+        final_message = (
+            messages[-1].content
+            if messages
+            else final_state.get("final_result", "No final message from agent.")
+        )
+        
+        logger.info(f"Resumed diagnosis completed for thread_id: {thread_id}")
+        return {
+            "status": "success",
+            "thread_id": thread_id,
+            "agent_diagnosis": final_message,
+            "current_agent_state": final_state,
+        }
+    
+    except Exception as exc:
+        logger.exception(f"Error resuming diagnosis for thread_id {thread_id}: {exc}")
+        raise HTTPException(status_code=500, detail=f"Failed to resume diagnosis: {exc}") from exc
+    finally:
+        duration = time.time() - start_time
+        logger.info(f"Resume diagnosis for thread_id {thread_id} took {duration:.4f} seconds.")
 
 @app.get("/metrics")
 async def prometheus_metrics():

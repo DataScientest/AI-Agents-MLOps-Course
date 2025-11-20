@@ -6,7 +6,7 @@ outside of the agent workflow. Use it to understand semantic search
 and test different queries.
 
 Usage:
-    docker exec ai-agents-mlops-course-aiops-agent-monitor-1 python test_rag_query.py
+    docker exec ai-agents-mlops-course-aiops-agent-monitor-1 python tests/test_rag_query.py
 """
 
 import sys
@@ -18,14 +18,18 @@ sys.path.insert(0, '/app')
 from knowledge_base import get_kb_client
 
 
-def main():
+def main(query = "Memory usage growing over time, eventually hitting limits", 
+        service = "news-classifier-api", 
+        top_k = 3, 
+        similarity_threshold = 0.6):
+
     """Query the knowledge base for similar incidents."""
     
     # Customize your query here
-    query = "Memory usage growing over time, eventually hitting limits"
-    service = "news-classifier-api"
-    top_k = 3
-    similarity_threshold = 0.6
+    #query = "Memory usage growing over time, eventually hitting limits"
+    #service = "news-classifier-api"
+    #top_k = 3
+    #similarity_threshold = 0.6
     
     print("=" * 70)
     print("RAG Knowledge Base Query Test")
@@ -90,4 +94,18 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Query the RAG knowledge base for similar incidents")
+    parser.add_argument("--query", default="Memory usage growing over time, eventually hitting limits", 
+                        help="Query string to search for")
+    parser.add_argument("--service", default="news-classifier-api", 
+                        help="Service name to filter by (optional)")
+    parser.add_argument("--top_k", type=int, default=3, 
+                        help="Number of results to return")
+    parser.add_argument("--similarity_threshold", type=float, default=0.6, 
+                        help="Minimum similarity score (0.0-1.0)")
+    
+    args = parser.parse_args()
+    main(query=args.query, service=args.service, top_k=args.top_k, 
+         similarity_threshold=args.similarity_threshold)
