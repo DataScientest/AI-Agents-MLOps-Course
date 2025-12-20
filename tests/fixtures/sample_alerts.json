@@ -1,0 +1,32 @@
+[
+  {
+    "alert_name": "HighCPUUsage",
+    "service": "news-api",
+    "severity": "critical",
+    "description": "CPU usage > 90% on instance-1",
+    "labels": {
+      "alertname": "HighCPUUsage",
+      "service": "news-api",
+      "severity": "critical",
+      "instance": "instance-1"
+    },
+    "annotations": {
+      "summary": "CPU usage is dangerously high"
+    }
+  },
+  {
+    "alert_name": "MemoryLeak",
+    "service": "database",
+    "severity": "warning",
+    "description": "Memory usage increasing steadily",
+    "labels": {
+      "alertname": "MemoryLeak",
+      "service": "database",
+      "severity": "warning",
+      "instance": "db-01"
+    },
+    "annotations": {
+      "summary": "Potential memory leak detected"
+    }
+  }
+]

@@ -5,6 +5,10 @@ from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, HTTPException, Body, status
 from pydantic import BaseModel
 
+import time
+from prometheus_client import Counter, Histogram, generate_latest
+from fastapi.responses import Response
+
 # Add src to path to import knowledge_base
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
@@ -16,7 +20,24 @@ from config import POSTGRES_URI
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Metrics
+REQUEST_COUNT = Counter("kb_service_request_count", "Total request count", ["method", "endpoint", "http_status"])
+REQUEST_LATENCY = Histogram("kb_service_request_latency_seconds", "Request latency", ["method", "endpoint"])
+
 app = FastAPI(title="Knowledge Base Service", description="Microservice for handling RAG and incident history.")
+
+@app.middleware("http")
+async def monitor_requests(request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    latency = time.time() - start_time
+    REQUEST_COUNT.labels(method=request.method, endpoint=request.url.path, http_status=response.status_code).inc()
+    REQUEST_LATENCY.labels(method=request.method, endpoint=request.url.path).observe(latency)
+    return response
+
+@app.get("/metrics")
+def metrics():
+    return Response(content=generate_latest(), media_type="text/plain")
 
 # Initialize KB Client (Direct PostgreSQL access internal to this service)
 try:

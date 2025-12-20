@@ -1,0 +1,20 @@
+{
+    "cpu_spike": {
+        "expected_root_cause": "High CPU utilization due to process load",
+        "required_keywords": [
+            "cpu",
+            "load",
+            "process"
+        ],
+        "min_confidence": 0.7
+    },
+    "memory_leak": {
+        "expected_root_cause": "Memory saturation or leak in the heap",
+        "required_keywords": [
+            "memory",
+            "leak",
+            "oom"
+        ],
+        "min_confidence": 0.6
+    }
+}

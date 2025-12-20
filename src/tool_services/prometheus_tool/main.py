@@ -5,13 +5,27 @@ from pydantic import BaseModel
 from typing import Optional
 from prometheus_client import Counter, Histogram, generate_latest
 from fastapi.responses import Response
+import time
 
 from tool import PrometheusQueryTool
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Metrics
+REQUEST_COUNT = Counter("prometheus_tool_request_count", "Total request count", ["method", "endpoint", "http_status"])
+REQUEST_LATENCY = Histogram("prometheus_tool_request_latency_seconds", "Request latency", ["method", "endpoint"])
+
 app = FastAPI(title="Prometheus Tool Service")
+
+@app.middleware("http")
+async def monitor_requests(request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    latency = time.time() - start_time
+    REQUEST_COUNT.labels(method=request.method, endpoint=request.url.path, http_status=response.status_code).inc()
+    REQUEST_LATENCY.labels(method=request.method, endpoint=request.url.path).observe(latency)
+    return response
 
 PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://prometheus:9090")
 tool = PrometheusQueryTool(PROMETHEUS_URL)
