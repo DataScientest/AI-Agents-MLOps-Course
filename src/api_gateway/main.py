@@ -23,6 +23,30 @@ REQUEST_LATENCY = Histogram('gateway_request_latency_seconds', 'Latency of API G
 def health():
     return {"status": "ok", "service": "api-gateway"}
 
+@app.get("/health/mesh")
+def health_mesh():
+    services = {
+        "agent-core": "http://aiops-agent-monitor:8005/health",
+        "prometheus-service": "http://prometheus-tool-service:8001/health",
+        "loki-service": "http://loki-tool-service:8002/health",
+        "grafana-service": "http://grafana-tool-service:8003/health",
+        "system-service": "http://system-tool-service:8004/health",
+        "knowledge-base-service": "http://knowledge-base-service:8006/health",
+    }
+    
+    health_results = {"api-gateway": "ok"}
+    for name, url in services.items():
+        try:
+            resp = requests.get(url, timeout=2)
+            if resp.status_code == 200:
+                health_results[name] = resp.json().get("status", "ok")
+            else:
+                health_results[name] = f"error ({resp.status_code})"
+        except Exception as e:
+            health_results[name] = f"unreachable ({str(e)})"
+            
+    return health_results
+
 @app.get("/ready")
 def ready():
     try:

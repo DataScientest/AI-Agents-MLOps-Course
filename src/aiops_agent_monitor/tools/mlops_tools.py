@@ -7,6 +7,7 @@ from langchain_core.tools import tool
 
 logger = logging.getLogger(__name__)
 
+import time
 from config import (
     PROMETHEUS_TOOL_SERVICE_URL,
     LOKI_TOOL_SERVICE_URL,
@@ -14,6 +15,44 @@ from config import (
     SYSTEM_TOOL_SERVICE_URL,
     KNOWLEDGE_BASE_URL as KNOWLEDGE_BASE_SERVICE_URL,
 )
+
+class CircuitBreaker:
+    def __init__(self, name: str, failure_threshold: int = 3, recovery_timeout: int = 30):
+        self.name = name
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.failures = 0
+        self.state = "CLOSED"  # CLOSED, OPEN, HALF-OPEN
+        self.last_failure_time = 0
+
+    def call(self, func, *args, **kwargs):
+        if self.state == "OPEN":
+            if time.time() - self.last_failure_time > self.recovery_timeout:
+                self.state = "HALF-OPEN"
+                logger.info(f"Circuit Breaker [{self.name}] transition to HALF-OPEN")
+            else:
+                raise Exception(f"{self.name} Service Unavailable (Circuit Breaker Open)")
+
+        try:
+            result = func(*args, **kwargs)
+            if self.state == "HALF-OPEN":
+                self.state = "CLOSED"
+                self.failures = 0
+                logger.info(f"Circuit Breaker [{self.name}] transition to CLOSED")
+            return result
+        except Exception as e:
+            self.failures += 1
+            self.last_failure_time = time.time()
+            if self.failures >= self.failure_threshold:
+                self.state = "OPEN"
+                logger.warn(f"Circuit Breaker [{self.name}] transition to OPEN")
+            raise e
+
+# Initialize breakers
+loki_breaker = CircuitBreaker("Loki", failure_threshold=3)
+prom_breaker = CircuitBreaker("Prometheus", failure_threshold=3)
+kb_breaker = CircuitBreaker("KnowledgeBase", failure_threshold=3)
+system_breaker = CircuitBreaker("System", failure_threshold=3)
 
 # --- Pydantic Models for Tool Inputs ---
 
@@ -46,10 +85,10 @@ class RAGKnowledgeSearchInput(BaseModel):
 # --- Tool Wrappers (HTTP Proxies) ---
 
 @tool(args_schema=PrometheusQueryInput)
-def PrometheusQuery(query: str, time_range_minutes: Union[int, str], step_seconds: Union[int, str], target_service: Optional[str] = None) -> str:
+def PrometheusQuery(query: str, time_range_minutes: Union[int, str] = 5, step_seconds: Union[int, str] = 30, target_service: Optional[str] = None) -> str:
     """Executes a PromQL query via the Prometheus Tool Service."""
     logger.info(f"Agent Core calling Prometheus Tool Service: {query}")
-    try:
+    def _perform_query():
         payload = {
             "query": query,
             "time_range_minutes": int(time_range_minutes),
@@ -59,15 +98,18 @@ def PrometheusQuery(query: str, time_range_minutes: Union[int, str], step_second
         resp = requests.post(f"{PROMETHEUS_TOOL_SERVICE_URL}/query", json=payload, timeout=30)
         resp.raise_for_status()
         return resp.json().get("result", "Error: No results.")
+
+    try:
+        return prom_breaker.call(_perform_query)
     except Exception as e:
         logger.error(f"Prometheus tool call failed: {e}")
         return f"Error: {e}"
 
 @tool(args_schema=LokiLogSearchInput)
-def LokiLogSearch(query: str, time_range_minutes: Union[int, str], limit: Union[int, str], target_service: Optional[str] = None) -> str:
+def LokiLogSearch(query: str, time_range_minutes: Union[int, str] = 5, limit: Union[int, str] = 10, target_service: Optional[str] = None) -> str:
     """Executes a LogQL search via the Loki Tool Service."""
     logger.info(f"Agent Core calling Loki Tool Service: {query}")
-    try:
+    def _perform_search():
         payload = {
             "query": query,
             "time_range_minutes": int(time_range_minutes),
@@ -77,12 +119,15 @@ def LokiLogSearch(query: str, time_range_minutes: Union[int, str], limit: Union[
         resp = requests.post(f"{LOKI_TOOL_SERVICE_URL}/search", json=payload, timeout=30)
         resp.raise_for_status()
         return resp.json().get("result", "Error: No results.")
+
+    try:
+        return loki_breaker.call(_perform_search)
     except Exception as e:
         logger.error(f"Loki tool call failed: {e}")
         return f"Error: {e}"
 
 @tool(args_schema=GrafanaDashboardLinkInput)
-def GrafanaDashboardLink(dashboard_uid: str, time_range_minutes: Union[int, str], service_filter: Optional[str] = None) -> str:
+def GrafanaDashboardLink(dashboard_uid: str, time_range_minutes: Union[int, str] = 60, service_filter: Optional[str] = None) -> str:
     """Generates a Grafana dashboard link via the Grafana Tool Service."""
     logger.info(f"Agent Core calling Grafana Tool Service: {dashboard_uid}")
     try:
