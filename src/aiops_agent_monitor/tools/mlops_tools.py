@@ -1,340 +1,144 @@
+import os
 import logging
 import requests
-import time
-import os 
-import re
-
 from pydantic import BaseModel, Field
-from typing import Optional
-
+from typing import Optional, Union
 from langchain_core.tools import tool
 
 logger = logging.getLogger(__name__)
 
-# --- Base URLs for monitoring services ---
-PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://prometheus:9090") 
-LOKI_URL = os.getenv("LOKI_URL", "http://loki:3100") 
-GRAFANA_URL = os.getenv("GRAFANA_URL", "http://grafana:3000") 
+from config import (
+    PROMETHEUS_TOOL_SERVICE_URL,
+    LOKI_TOOL_SERVICE_URL,
+    GRAFANA_TOOL_SERVICE_URL,
+    SYSTEM_TOOL_SERVICE_URL,
+    KNOWLEDGE_BASE_URL as KNOWLEDGE_BASE_SERVICE_URL,
+)
 
-# --- Prometheus Query Tool ---
+# --- Pydantic Models for Tool Inputs ---
+
 class PrometheusQueryInput(BaseModel):
-    """Schema for PrometheusQuery tool input."""
     query: str = Field(description="The PromQL query to execute on Prometheus, e.g., 'rate(node_cpu_seconds_total[5m])'.")
-    time_range_minutes: int = Field(default=5, description="The time range in minutes for the query, e.g., 5, 15, 60.")
-    step_seconds: int = Field(default=30, description="The query resolution step width in seconds.")
+    time_range_minutes: Union[int, str] = Field(default=5, description="The time range in minutes for the query.")
+    step_seconds: Union[int, str] = Field(default=30, description="The query resolution step width in seconds.")
     target_service: Optional[str] = Field(default=None, description="The specific service to filter metrics for, e.g., 'news-classifier-api'.")
 
-@tool(args_schema=PrometheusQueryInput)
-def PrometheusQuery(query: str, time_range_minutes: int, step_seconds: int, target_service: Optional[str] = None) -> str:
-    """
-    Executes a PromQL query on Prometheus to retrieve time-series data.
-    Useful for fetching metrics like CPU usage, memory, request rates, etc.
-    The input arguments are: 'query' (PromQL string), 'time_range_minutes' (int),
-    'step_seconds' (int), and optionally 'target_service' (str).
-    Example: {'query': 'rate(node_cpu_seconds_total[5m])', 'time_range_minutes': 15}.
-    """
-    # Get URL at runtime to support environment variable overrides
-    prom_url = os.getenv("PROMETHEUS_URL", PROMETHEUS_URL)
-    logger.info(f"Tool 'PrometheusQuery' called with query: '{query}', range: {time_range_minutes}m, service: {target_service}")
-    try:
-        if time_range_minutes <= 0:
-            raise ValueError("time_range_minutes must be positive.")
-        if step_seconds <= 0:
-            raise ValueError("step_seconds must be positive.")
-
-        full_query = query
-        end_time = int(time.time())
-        start_time = end_time - (time_range_minutes * 60)
-
-        params = {
-            "query": full_query,
-            "start": start_time,
-            "end": end_time,
-            "step": f"{step_seconds}s"
-        }
-
-        response = requests.get(f"{prom_url}/api/v1/query_range", params=params, timeout=10)
-        response.raise_for_status() 
-        
-        data = response.json()
-        
-        if data["status"] == "success" and data["data"]["result"]:
-            formatted_results = []
-            for result in data["data"]["result"]:
-                metric_labels = ', '.join([f"{k}='{v}'" for k, v in result["metric"].items()])
-                values = [f"{float(v[1]):.2f}" for v in result["values"]]
-                formatted_results.append(f"{{ {metric_labels} }} values: {', '.join(values)}")
-            
-            logger.info(f"Prometheus query successful. Results: {len(data['data']['result'])} series.")
-            return "Prometheus query results:\n" + "\n".join(formatted_results)
-        else:
-            logger.warning("Prometheus query successful but no data found.")
-            return "Prometheus query: No data found for the given query and time range."
-    
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error querying Prometheus at {prom_url}: {e}")
-        return f"Failed to query Prometheus: {e}"
-    except Exception as e:
-        logger.error(f"An unexpected error occurred during PrometheusQuery: {e}", exc_info=True)
-        return f"An unexpected error occurred: {e}"
-
-# --- Loki Log Search Tool ---
 class LokiLogSearchInput(BaseModel):
-    """Schema for LokiLogSearch tool input."""
     query: str = Field(description="The LogQL query to execute on Loki, e.g., '{job=\"docker\", container_name=\"news-classifier-api\"} |= \"error\"'.")
-    time_range_minutes: int = Field(default=5, description="The time range in minutes for the query.")
-    limit: int = Field(default=10, description="Maximum number of log lines to return.")
+    time_range_minutes: Union[int, str] = Field(default=5, description="The time range in minutes for the query.")
+    limit: Union[int, str] = Field(default=10, description="Maximum number of log lines to return.")
     target_service: Optional[str] = Field(default=None, description="The specific service to filter logs for, e.g., 'news-classifier-api'.")
 
-@tool(args_schema=LokiLogSearchInput)
-def LokiLogSearch(query: str, time_range_minutes: int, limit: int, target_service: Optional[str] = None) -> str:
-    """
-    Executes a LogQL query on Loki to retrieve log entries.
-    Useful for finding errors, warnings, or specific events in application logs.
-    The input arguments are: 'query' (LogQL string), 'time_range_minutes' (int),
-    and optionally 'limit' (int) and 'target_service' (str).
-    Example: {'query': '{job=\"docker\"}', 'time_range_minutes': 15, 'limit': 20}.
-    """
-    # Get URL at runtime to support environment variable overrides
-    loki_url = os.getenv("LOKI_URL", LOKI_URL)
-    original_query = query
-    full_query = _augment_loki_query(query or "", target_service)
-    logger.info(
-        "Function 'LokiLogSearch' called with query: '%s', limit: %s, service: %s",
-        full_query,
-        limit,
-        target_service,
-    )
-    try:
-        if time_range_minutes <= 0:
-            raise ValueError("time_range_minutes must be positive.")
-        if limit <= 0 or limit > 100: 
-            limit = 10 
-        end_time_ns_int = int(time.time() * 1e9)
-        start_time_ns_int = int(end_time_ns_int - (time_range_minutes * 60 * 1e9))
-        
-        params = {
-            "query": full_query,
-            "start": str(start_time_ns_int),
-            "end": str(end_time_ns_int),
-            "limit": limit
-        }
-        
-        response = requests.get(f"{loki_url}/loki/api/v1/query_range", params=params, timeout=10)
-        response.raise_for_status()
-        
-        data = response.json()
-        
-        if data["status"] == "success" and data["data"]["result"]:
-            formatted_logs = []
-            for stream in data["data"]["result"]:
-                for entry in stream["values"]:
-                    formatted_logs.append(f"{entry[0]} {stream['stream']} {entry[1]}")
-            logger.info(f"Loki query successful. Found {len(formatted_logs)} log entries.")
-            return "Loki log search results:\n" + "\n".join(formatted_logs[:limit])
-        else:
-            logger.warning("Loki query successful but no logs found.")
-            return "Loki log search: No logs found for the given query and time range."
-    
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error querying Loki at {loki_url}: {e}")
-        return f"Failed to query Loki: {e}"
-    except Exception as e:
-        logger.error(f"An unexpected error occurred during LokiLogSearch: {e}", exc_info=True)
-        return f"An unexpected error occurred: {e}"
-
-
-def _augment_loki_query(query: str, target_service: Optional[str]) -> str:
-    """Ensure Loki queries include default service/job labels when target_service is provided."""
-    if not target_service:
-        return query.strip()
-
-    stripped = (query or "").strip()
-    default_selector = f'{"{"}job="docker", service="{target_service}"{"}"}'
-
-    if not stripped:
-        return default_selector
-
-    match = re.match(r'^\{([^}]*)\}(.*)$', stripped)
-    if not match:
-        # No selector present, prepend one
-        return f"{default_selector} {stripped}" if stripped else default_selector
-
-    labels_part, remainder = match.groups()
-
-    segments = [seg.strip() for seg in re.split(r',(?![^\"]*\")', labels_part) if seg.strip()]
-    ordered_keys = []
-    values = {}
-
-    for segment in segments:
-        if '=' not in segment:
-            continue
-        key, value = segment.split('=', 1)
-        key = key.strip()
-        if key not in values:
-            ordered_keys.append(key)
-        values[key] = value.strip()
-
-    if 'service' not in values:
-        ordered_keys.append('service')
-        values['service'] = f'"{target_service}"'
-
-    if 'job' not in values:
-        ordered_keys.append('job')
-        values['job'] = '"docker"'
-
-    rebuilt_labels = ', '.join(f"{key}={values[key]}" for key in ordered_keys)
-    return f'{{{rebuilt_labels}}}{remainder}'
-
-# --- Grafana Dashboard Link Tool ---
 class GrafanaDashboardLinkInput(BaseModel):
-    """Schema for GrafanaDashboardLink tool input."""
     dashboard_uid: str = Field(description="The UID of the Grafana dashboard to link to.")
-    time_range_minutes: int = Field(default=60, description="The time range in minutes for the dashboard link.")
+    time_range_minutes: Union[int, str] = Field(default=60, description="The time range in minutes for the dashboard link.")
     service_filter: Optional[str] = Field(default=None, description="Optional service name to filter the dashboard.")
 
-@tool(args_schema=GrafanaDashboardLinkInput)
-def GrafanaDashboardLink(dashboard_uid: str, time_range_minutes: int, service_filter: Optional[str] = None) -> str:
-    """
-    Generates a direct link to a Grafana dashboard with specific time range and optional filters.
-    Useful for providing a human operator with a visual context of the issue.
-    The input arguments are: 'dashboard_uid' (str), 'time_range_minutes' (int),
-    and optionally 'service_filter' (str).
-    Example input: {'dashboard_uid': 'news_classifier_health', 'time_range_minutes': 60, 'service_filter': 'news-classifier-api'}.
-    """
-    # Get URL at runtime to support environment variable overrides
-    grafana_url = os.getenv("GRAFANA_URL", GRAFANA_URL)
-    logger.info(f"Function 'GrafanaDashboardLink' called for dashboard_uid: '{dashboard_uid}', range: {time_range_minutes}m, filter: {service_filter}")
-    try:
-        if time_range_minutes <= 0:
-            raise ValueError("time_range_minutes must be positive.")
-        
-        to_time = int(time.time() * 1000)
-        from_time = to_time - (time_range_minutes * 60 * 1000)
+class SystemMetricsInput(BaseModel):
+    component: str = Field(description="The system component to check metrics for, e.g., 'CPU', 'Memory', 'Disk'.")
+    target_service: Optional[str] = Field(default=None, description="The specific service to filter metrics for, e.g., 'news-classifier-api'.")
 
-        base_url = f"{grafana_url}/d/{dashboard_uid}" 
-        params = {
-            "from": from_time,
-            "to": to_time,
-            "orgId": 1
-        }
-        
-        if service_filter:
-            params[f"var-service"] = service_filter 
-        
-        from urllib.parse import urlencode 
-        full_url = f"{base_url}?{urlencode(params)}"
-        
-        logger.info(f"Generated Grafana link: {full_url}")
-        return f"Grafana Dashboard Link: {full_url}"
-    
-    except requests.exceptions.RequestException as e:
-        logger.error(f"GrafanaDashboardLink error: {e}")
-        return f"Input validation error for GrafanaDashboardLink: {e}"
-    except Exception as e:
-        logger.error(f"An unexpected error occurred during GrafanaDashboardLink: {e}", exc_info=True)
-        return f"An unexpected error occurred: {e}"
-
-
-# --- RAG Knowledge Search Tool (Chapter 4 - Part 2) ---
 class RAGKnowledgeSearchInput(BaseModel):
-    """Schema for RAGKnowledgeSearch tool input."""
-    query: str = Field(
-        description="The query describing the current incident, e.g., 'high CPU usage after deployment'."
-    )
-    service_name: Optional[str] = Field(
-        default=None,
-        description="Filter results to specific service, e.g., 'news-classifier-api'."
-    )
-    alert_type: Optional[str] = Field(
-        default=None,
-        description="Filter results to specific alert type, e.g., 'HighCPULoad'."
-    )
-    # Note: top_k is hardcoded to 3 to avoid LLM type validation issues
+    query: str = Field(description="The query describing the current incident, e.g., 'high CPU usage after deployment'.")
+    service_name: Optional[str] = Field(default=None, description="Filter results to specific service, e.g., 'news-classifier-api'.")
+    alert_type: Optional[str] = Field(default=None, description="Filter results to specific alert type, e.g., 'HighCPULoad'.")
 
+# --- Tool Wrappers (HTTP Proxies) ---
+
+@tool(args_schema=PrometheusQueryInput)
+def PrometheusQuery(query: str, time_range_minutes: Union[int, str], step_seconds: Union[int, str], target_service: Optional[str] = None) -> str:
+    """Executes a PromQL query via the Prometheus Tool Service."""
+    logger.info(f"Agent Core calling Prometheus Tool Service: {query}")
+    try:
+        payload = {
+            "query": query,
+            "time_range_minutes": int(time_range_minutes),
+            "step_seconds": int(step_seconds),
+            "target_service": target_service
+        }
+        resp = requests.post(f"{PROMETHEUS_TOOL_SERVICE_URL}/query", json=payload, timeout=30)
+        resp.raise_for_status()
+        return resp.json().get("result", "Error: No results.")
+    except Exception as e:
+        logger.error(f"Prometheus tool call failed: {e}")
+        return f"Error: {e}"
+
+@tool(args_schema=LokiLogSearchInput)
+def LokiLogSearch(query: str, time_range_minutes: Union[int, str], limit: Union[int, str], target_service: Optional[str] = None) -> str:
+    """Executes a LogQL search via the Loki Tool Service."""
+    logger.info(f"Agent Core calling Loki Tool Service: {query}")
+    try:
+        payload = {
+            "query": query,
+            "time_range_minutes": int(time_range_minutes),
+            "limit": int(limit),
+            "target_service": target_service
+        }
+        resp = requests.post(f"{LOKI_TOOL_SERVICE_URL}/search", json=payload, timeout=30)
+        resp.raise_for_status()
+        return resp.json().get("result", "Error: No results.")
+    except Exception as e:
+        logger.error(f"Loki tool call failed: {e}")
+        return f"Error: {e}"
+
+@tool(args_schema=GrafanaDashboardLinkInput)
+def GrafanaDashboardLink(dashboard_uid: str, time_range_minutes: Union[int, str], service_filter: Optional[str] = None) -> str:
+    """Generates a Grafana dashboard link via the Grafana Tool Service."""
+    logger.info(f"Agent Core calling Grafana Tool Service: {dashboard_uid}")
+    try:
+        payload = {
+            "dashboard_uid": dashboard_uid,
+            "time_range_minutes": int(time_range_minutes),
+            "service_filter": service_filter
+        }
+        resp = requests.post(f"{GRAFANA_TOOL_SERVICE_URL}/link", json=payload, timeout=30)
+        resp.raise_for_status()
+        return resp.json().get("result", "Error: No results.")
+    except Exception as e:
+        logger.error(f"Grafana tool call failed: {e}")
+        return f"Error: {e}"
+
+@tool(args_schema=SystemMetricsInput)
+def SystemMetrics(component: str, target_service: Optional[str] = None) -> str:
+    """Fetches system metrics (CPU, Memory, Disk) via the System Tool Service."""
+    logger.info(f"Agent Core calling System Tool Service: {component}")
+    try:
+        payload = {"component": component, "target_service": target_service}
+        resp = requests.post(f"{SYSTEM_TOOL_SERVICE_URL}/system_metrics", json=payload, timeout=30)
+        resp.raise_for_status()
+        return resp.json().get("result", "Error: No results.")
+    except Exception as e:
+        logger.error(f"System tool call failed: {e}")
+        return f"Error: {e}"
 
 @tool(args_schema=RAGKnowledgeSearchInput)
-def RAGKnowledgeSearch(
-    query: str,
-    service_name: Optional[str] = None,
-    alert_type: Optional[str] = None
-) -> str:
-    """
-    Search the knowledge base for similar past incidents using semantic search.
-
-    This tool retrieves historical incidents that are semantically similar to the
-    current problem, along with their root causes and solutions. Use this when
-    diagnosing an alert to learn from past resolutions.
-
-    Returns:
-        Formatted text with similar incidents, their solutions, and success rates.
-
-    Example:
-        RAGKnowledgeSearch(
-            query="CPU spiking to 95% during deployment",
-            service_name="news-classifier-api"
-        )
-    """
-    logger.info(
-        f"RAGKnowledgeSearch called: query='{query[:50]}...', "
-        f"service={service_name}, alert_type={alert_type}"
-    )
-
-    # Hardcode top_k to avoid LLM type validation issues with Groq API
-    top_k = 3
-
+def RAGKnowledgeSearch(query: str, service_name: Optional[str] = None, alert_type: Optional[str] = None) -> str:
+    """Searches the knowledge base for similar past incidents via the Knowledge Base Service."""
+    logger.info(f"Agent Core calling KB Service: {query}")
     try:
-        # Input validation
-        if not query or len(query.strip()) == 0:
-            raise ValueError("Query cannot be empty")
-
-        if top_k < 1 or top_k > 10:
-            raise ValueError("top_k must be between 1 and 10")
-
-        # Import here to avoid circular dependency
-        from knowledge_base import get_kb_client
-
-        # Get knowledge base client (automatically chooses PostgreSQL or HTTP based on config)
-        kb_client = get_kb_client()
-
-        # Search for similar incidents
-        similar_incidents = kb_client.search_similar_incidents(
-            query=query,
-            service_name=service_name,
-            alert_type=alert_type,
-            top_k=top_k,
-        )
-
-        # Format results for LLM
-        if not similar_incidents:
-            return (
-                f"No similar incidents found in knowledge base for query: '{query}'\n"
-                f"This might be a new type of incident. Proceed with standard diagnostic workflow."
-            )
-
-        result = f"Found {len(similar_incidents)} similar incident(s) in knowledge base:\n\n"
-
-        for i, similar in enumerate(similar_incidents, 1):
-            result += f"--- Incident {i} ---\n"
-            result += similar.to_text_summary()
-            result += "\n\n"
-
-        result += (
-            "Recommendation: Review these past incidents to see if their solutions "
-            "apply to the current situation. Pay attention to incidents with high "
-            "similarity scores and success rates."
-        )
-
-        logger.info(f"RAGKnowledgeSearch returned {len(similar_incidents)} incidents")
-        return result
-
-    except ValueError as e:
-        logger.error(f"Validation error in RAGKnowledgeSearch: {e}")
-        return f"Input validation error: {e}"
-
+        payload = {
+            "query": query,
+            "service_name": service_name,
+            "alert_type": alert_type,
+            "top_k": 3,
+            "similarity_threshold": 0.7
+        }
+        resp = requests.post(f"{KNOWLEDGE_BASE_SERVICE_URL}/search", json=payload, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        
+        results = data.get("results", [])
+        if not results:
+            return "No similar incidents found in knowledge base."
+            
+        summary = f"Found {len(results)} similar incidents:\n\n"
+        for i, res in enumerate(results, 1):
+            inc = res['incident']
+            summary += f"--- Incident {i} (Similarity: {res['similarity_score']:.2f}) ---\n"
+            summary += f"Summary: {inc['summary']}\n"
+            summary += f"Root Cause: {inc['root_cause']}\n"
+            summary += f"Solution: {inc['solution']}\n\n"
+        return summary
     except Exception as e:
-        logger.exception(f"Error in RAGKnowledgeSearch: {e}")
-        return (
-            f"An error occurred while searching knowledge base: {e}\n"
-            f"Proceeding without historical context."
-        )
+        logger.error(f"KB tool search failed: {e}")
+        return f"Error: {e}"

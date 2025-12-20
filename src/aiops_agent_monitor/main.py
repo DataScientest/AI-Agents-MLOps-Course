@@ -88,8 +88,8 @@ def init_llm() -> ChatGroq:
 
 def init_tools() -> list:
     # Chapter 3 tools + Chapter 4 RAG tool
-    from tools.mlops_tools import RAGKnowledgeSearch
-    tools = [PrometheusQuery, LokiLogSearch, GrafanaDashboardLink]
+    from tools.mlops_tools import RAGKnowledgeSearch, SystemMetrics
+    tools = [PrometheusQuery, LokiLogSearch, GrafanaDashboardLink, SystemMetrics]
     
     # Dynamically enable RAG tool based on environment variable
     enable_rag = os.getenv("ENABLE_RAG_TOOL", "true").lower() == "true"
@@ -216,6 +216,18 @@ async def add_process_time_header(request: Request, call_next):
 async def read_root():
     logger.info("Received request to root endpoint.")
     return {"message": "AIOps Diagnostic Agent Service is running and ready to diagnose alerts!"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "aiops-agent-monitor"}
+
+@app.get("/ready")
+def ready():
+    # Basic check: is the tool list initialized?
+    if DIAGNOSTIC_TOOLS:
+        return {"status": "ready"}
+    else:
+        raise HTTPException(status_code=503, detail="Agent tools not initialized")
 
 @app.post("/diagnose_alert")
 async def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
