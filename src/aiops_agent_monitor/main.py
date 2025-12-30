@@ -18,7 +18,10 @@ from psycopg.rows import dict_row
 
 from agents import build_diagnostic_agent
 from state import AgentState
-from tools.mlops_tools import GrafanaDashboardLink, LokiLogSearch, PrometheusQuery
+from tools.mlops_tools import (
+    GrafanaDashboardLink, LokiLogSearch, PrometheusQuery,
+    prom_breaker, loki_breaker, kb_breaker, system_breaker
+)
 
 def configure_logging() -> logging.Logger:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -228,6 +231,53 @@ def ready():
         return {"status": "ready"}
     else:
         raise HTTPException(status_code=503, detail="Agent tools not initialized")
+
+@app.get("/circuit_breakers")
+def get_circuit_breaker_states():
+    """
+    Expose circuit breaker states for gateway-level fail-fast decisions.
+    Production pattern: Gateway checks this before forwarding requests.
+    
+    Uses get_effective_state() to properly handle HALF-OPEN transitions:
+    - OPEN: Block requests (service is down)
+    - HALF-OPEN: Allow requests (testing if service recovered)
+    - CLOSED: Allow requests (service is healthy)
+    """
+    breakers = {
+        "prometheus": {
+            "state": prom_breaker.state,
+            "effective_state": prom_breaker.get_effective_state(),
+            "failures": prom_breaker.failures,
+            "is_blocking": prom_breaker.is_blocking()
+        },
+        "loki": {
+            "state": loki_breaker.state,
+            "effective_state": loki_breaker.get_effective_state(),
+            "failures": loki_breaker.failures,
+            "is_blocking": loki_breaker.is_blocking()
+        },
+        "knowledge_base": {
+            "state": kb_breaker.state,
+            "effective_state": kb_breaker.get_effective_state(),
+            "failures": kb_breaker.failures,
+            "is_blocking": kb_breaker.is_blocking()
+        },
+        "system": {
+            "state": system_breaker.state,
+            "effective_state": system_breaker.get_effective_state(),
+            "failures": system_breaker.failures,
+            "is_blocking": system_breaker.is_blocking()
+        },
+    }
+    
+    # Check if any critical circuit is actively blocking (OPEN, not HALF-OPEN)
+    critical_open = prom_breaker.is_blocking()
+    
+    return {
+        "breakers": breakers,
+        "critical_service_unavailable": critical_open,
+        "degraded_mode": loki_breaker.is_blocking() or kb_breaker.is_blocking()
+    }
 
 @app.post("/diagnose_alert")
 async def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):

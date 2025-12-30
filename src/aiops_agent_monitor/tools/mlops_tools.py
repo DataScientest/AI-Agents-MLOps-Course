@@ -25,6 +25,22 @@ class CircuitBreaker:
         self.state = "CLOSED"  # CLOSED, OPEN, HALF-OPEN
         self.last_failure_time = 0
 
+    def get_effective_state(self) -> str:
+        """
+        Get the effective state, checking if OPEN should transition to HALF-OPEN.
+        Used by gateway to determine if requests should be allowed through.
+        """
+        if self.state == "OPEN" and time.time() - self.last_failure_time > self.recovery_timeout:
+            return "HALF-OPEN"
+        return self.state
+
+    def is_blocking(self) -> bool:
+        """
+        Returns True if circuit should block requests.
+        OPEN blocks, HALF-OPEN allows (to test recovery), CLOSED allows.
+        """
+        return self.get_effective_state() == "OPEN"
+
     def call(self, func, *args, **kwargs):
         if self.state == "OPEN":
             if time.time() - self.last_failure_time > self.recovery_timeout:

@@ -390,6 +390,21 @@ The repository includes a comprehensive CI/CD workflow:
 5. **Run Tests**: `./scripts/run_tests.sh`
 6. **Benchmark**: `python3 scripts/benchmark.py`
 
+## 🔮 Future Improvements
+
+The following features are planned or available for further implementation:
+
+- **LangGraph Checkpoint Metrics**: The `LangGraph Checkpoints - PostgreSQL Health` Grafana dashboard exists but requires instrumentation. To enable it, add Prometheus metrics in `src/aiops_agent_monitor/` to track:
+  - Checkpoint save/load counts
+  - Checkpoint sizes
+  - Active thread counts
+  
+- **Distributed Tracing**: Add OpenTelemetry instrumentation for cross-service request tracing
+
+- **Advanced Chaos Tests**: Network partition simulation, gradual degradation scenarios
+
+- **Multi-LLM Support**: Fallback to alternative LLM providers when primary is rate-limited
+
 ## 🤝 Contributing
 
 This is an educational repository. For improvements:
