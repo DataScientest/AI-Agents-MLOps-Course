@@ -4,7 +4,7 @@ WORKDIR /docker-entrypoint-initdb.d
 
 # Install PostgreSQL client and Python dependencies
 RUN apt-get update && apt-get install -y postgresql-client curl && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir psycopg[binary]==3.2.10 pgvector==0.4.1 requests==2.32.5
+RUN pip install --no-cache-dir psycopg[binary,pool]==3.3.2 pgvector==0.4.1 requests==2.32.5
 
 # Copy scripts and data
 COPY deployment/postgres/load_sample_incidents.py .
