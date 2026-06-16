@@ -3,11 +3,10 @@ import logging
 
 from dotenv import load_dotenv
 
-from langchain import hub
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import Tool
-from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
-from langchain.agents import AgentExecutor, create_react_agent
+from langchain_core.messages import HumanMessage
+from langgraph.prebuilt import create_react_agent
 
 from tools.calculator import Calculator, CalculatorInput
 
@@ -53,57 +52,25 @@ def main():
     ]
     logger.info(f"{len(tools)} outils définis et prêts pour l'agent.")
 
-    # --- 4. Chargement et configuration du prompt spécialisé pour l'agent (Pattern ReAct) ---
+    # --- 4. Chargement du prompt système (persona + règles métier) ---
     try:
         with open("prompts/system_prompt.txt", "r", encoding="utf-8") as f:
-            persona_and_rules = f.read().strip()
-        logger.info("Prompt ReAct chargé depuis 'prompts/system_prompt.txt'.")
+            system_prompt = f.read().strip()
+        logger.info("Prompt système chargé depuis 'prompts/system_prompt.txt'.")
     except FileNotFoundError:
         logger.error("Le fichier 'prompts/system_prompt.txt' est introuvable. Assurez-vous qu'il existe.")
         return
     except Exception as e:
         logger.error(f"Erreur lors du chargement du prompt: {e}")
         return
-    
-    react_system_template = (
-            f"{persona_and_rules}\n\n"
-            "Tu as accès aux outils suivants:\n"
-            "{tools}\n\n"
-            "Utilise le format suivant pour répondre:\n\n"
-            "Question: la question que tu dois résoudre\n"
-            "Thought: tu dois toujours réfléchir à ce que tu dois faire, si l'un des outils peut t'aider à réondre à la question, fais le avec les champs suivants :\n"
-            "Action: Le nom de l'outil à utiliser pour répondre à la question. Il doit être parmi [{tool_names}]. Une seule Action à la fois.\n"
-            "Action Input: l'entrée de l'action, les arguments envoyés à l'outil, sans les guillemets.\n"
-            "Observation: le résultat de l'action\n"
-            "Ce cycle se répète jusqu'à ce que tu trouves la réponse finale...\n"
-            "Thought: Une fois que tu as toutes les informations nécessaires, que tu as résolu la  et que tu n'as plus besoin d'appeler d'outils, tu peux fournir la réponse finale :\n"
-            "Final Answer: la réponse finale à la question originale\n\n"
-            "Commence toujours par ta \"Thought\"."
 
-            "Remember, you do not always need to use tools. Do not provide information the user did not ask for.\n"
-            "Question: {input}\n"
-            "Thought: {agent_scratchpad}\n"
-        )
-    
-    system_message_prompt = SystemMessagePromptTemplate.from_template(react_system_template)
-    human_message_prompt = HumanMessagePromptTemplate.from_template("{input}\n{agent_scratchpad}")
+    # --- 5. Création de l'agent ReAct (LangGraph) ---
+    # create_react_agent retourne un graphe LangGraph compilé qui implémente
+    # la boucle ReAct : Raisonner → Agir (appel d'outil) → Observer → Raisonner...
+    agent = create_react_agent(llm, tools, prompt=system_prompt)
+    logger.info("Agent ReAct LangGraph créé avec le LLM et l'outil Calculatrice.")
 
-    prompt = ChatPromptTemplate(
-            messages=[system_message_prompt, human_message_prompt],
-            input_variables=['agent_scratchpad', 'input', 'tools', 'tool_names']
-        )
-        
-    logger.info("ChatPromptTemplate ReAct créé avec succès et contenu personnalisé.")
-
-    # --- 5. Création de l'agent LangChain ---
-    agent = create_react_agent(llm, tools, prompt)
-    logger.info("Agent ReAct créé avec le LLM et l'outil Calculatrice.")
-
-    # --- 6. Création de l'AgentExecutor ---
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
-    logger.info("AgentExecutor créé. Prêt à invoquer l'agent.")
-
-    # --- 7. Exécution de l'agent avec des questions axées sur les calculs ---
+    # --- 6. Exécution de l'agent avec des questions axées sur les calculs ---
     questions = [
         "Quelle est la racine carrée de 144 plus 5 ?",
         "Calcule 15 * (3 + 7) / 2.",
@@ -117,8 +84,9 @@ def main():
     for i, q in enumerate(questions):
         print(f"\n--- Question {i+1}: {q} ---")
         try:
-            response = agent_executor.invoke({"input": q})
-            print(f"Réponse finale de l'agent: {response['output']}")
+            result = agent.invoke({"messages": [HumanMessage(content=q)]})
+            final_answer = result["messages"][-1].content
+            print(f"Réponse finale de l'agent: {final_answer}")
         except Exception as e:
             logger.error(f"Erreur lors de l'exécution de l'agent pour la question '{q}': {e}")
             print(f"L'agent a rencontré une erreur: {e}")
