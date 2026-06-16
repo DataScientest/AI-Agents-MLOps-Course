@@ -54,6 +54,7 @@ EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "huggingface-tei")
 
 # OpenAI configuration (if using openai provider)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
 
 # Hugging Face TEI configuration (if using huggingface-tei provider)
 HUGGINGFACE_TEI_URL = os.getenv("HUGGINGFACE_TEI_URL", "http://tei:8080")

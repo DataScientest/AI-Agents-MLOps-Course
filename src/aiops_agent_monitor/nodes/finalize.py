@@ -6,7 +6,7 @@ import logging
 
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 
 from state import AgentState
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def finalize_diagnosis_node(
     *,
-    llm: ChatGroq,
+    llm: BaseChatModel,
     system_prompt: str,
     human_template: str,
 ):

@@ -8,7 +8,7 @@ from typing import Iterable
 from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import BaseTool
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 
 from state import AgentState
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def llm_agent_node(
-    llm: ChatGroq,
+    llm: BaseChatModel,
     tools: Iterable[BaseTool],
     system_prompt: str,
 ):

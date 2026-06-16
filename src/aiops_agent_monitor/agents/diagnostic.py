@@ -6,7 +6,7 @@ import logging
 from typing import Iterable, Optional
 
 from langchain_core.tools import BaseTool
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.postgres import PostgresSaver
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def build_diagnostic_agent(
-    llm: ChatGroq, 
+    llm: BaseChatModel,
     tools: Iterable[BaseTool],
     checkpointer: Optional[PostgresSaver] = None
 ) -> StateGraph:
