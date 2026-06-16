@@ -100,6 +100,7 @@ services:
   loki:
     image: grafana/loki:latest
     container_name: loki
+    user: root
     ports:
       - "3100:3100"
     volumes:
