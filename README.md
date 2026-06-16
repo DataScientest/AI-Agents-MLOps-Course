@@ -42,6 +42,7 @@ Create a `.env` file at the root of the project. **Make sure your `GROQ_API_KEY`
 
 ```
 GROQ_API_KEY="your_groq_api_key_here"
+GROQ_MODEL_NAME="meta-llama/llama-4-scout-17b-16e-instruct"
 LANGCHAIN_TRACING_V2="true"
 LANGCHAIN_API_KEY="your_langsmith_api_key_here"
 LANGCHAIN_PROJECT="MLOps Guard Agent - Chapter 3"
