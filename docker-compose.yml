@@ -24,7 +24,7 @@ services:
       - LLM_API_BASE=${LLM_API_BASE:-}
       - OPENAI_API_BASE=${OPENAI_API_BASE:-https://api.openai.com/v1}
       - LANGCHAIN_TRACING_V2=true
-      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
       - LANGCHAIN_PROJECT=AIOps Monitor Agent Internal Runs
       - POSTGRES_HOST=${POSTGRES_HOST} 
       - POSTGRES_PORT=${POSTGRES_PORT}
@@ -35,7 +35,7 @@ services:
       - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-monolith}
       - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-huggingface-tei}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
-      - HUGGINGFACE_TEI_URL=${HUGGINGFACE_TEI_URL}
+      - HUGGINGFACE_TEI_URL=${HUGGINGFACE_TEI_URL:-http://tei:8080}
       - ENABLE_RAG_TOOL=${ENABLE_RAG_TOOL:-false}
     depends_on:
       - prometheus
@@ -159,7 +159,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - HUGGINGFACE_TEI_URL=${HUGGINGFACE_TEI_URL}
+      - HUGGINGFACE_TEI_URL=${HUGGINGFACE_TEI_URL:-http://tei:8080}
       - LOAD_SAMPLE_DATA=${LOAD_SAMPLE_DATA:-false}
     depends_on:
       - postgres
