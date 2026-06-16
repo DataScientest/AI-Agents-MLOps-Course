@@ -18,7 +18,7 @@ DEPLOYMENT_MODE: Literal["monolith", "microservices"] = os.getenv(
 # LLM Configuration
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL_NAME = os.getenv("GROQ_MODEL_NAME", "gpt-4o-mini")
-OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
+OPENAI_API_BASE = os.getenv("OPENAI_API_BASE") or "https://api.openai.com/v1"
 
 # LangSmith Tracing
 LANGCHAIN_TRACING_V2 = os.getenv("LANGCHAIN_TRACING_V2", "true")

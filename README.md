@@ -216,7 +216,13 @@ Create a `.env` file (or copy from `.env.example`):
 ```env
 # LLM Configuration
 GROQ_API_KEY=your_groq_api_key_here
-LLM_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL_NAME=meta-llama/llama-4-scout-17b-16e-instruct
+LLM_API_BASE=https://api.groq.com/openai/v1
+
+# For OpenAI instead, set:
+# OPENAI_API_KEY=your_openai_api_key_here
+# OPENAI_MODEL_NAME=gpt-4o-mini
+# LLM_API_BASE=https://api.openai.com/v1
 
 # Deployment Mode
 DEPLOYMENT_MODE=microservices
