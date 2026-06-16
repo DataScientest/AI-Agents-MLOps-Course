@@ -70,13 +70,38 @@ AGENT_DIAGNOSIS_COUNT = Counter(
 
 AGENT_STATUS_GAUGE.set(1)
 
-def init_llm() -> BaseChatModel:
-    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY (or GROQ_API_KEY) environment variable not set.")
+DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+GROQ_OPENAI_BASE_URL = "https://api.groq.com/openai/v1"
 
-    model_name = os.getenv("GROQ_MODEL_NAME", "gpt-4o-mini")
-    base_url = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
+
+def get_env_value(name: str) -> Optional[str]:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return None
+    return value
+
+
+def init_llm() -> BaseChatModel:
+    openai_key = get_env_value("OPENAI_API_KEY")
+    groq_key = get_env_value("GROQ_API_KEY")
+    openai_model = get_env_value("OPENAI_MODEL_NAME")
+
+    if openai_key and openai_model:
+        api_key = openai_key
+        model_name = openai_model
+        base_url = get_env_value("LLM_API_BASE") or get_env_value("OPENAI_API_BASE") or DEFAULT_OPENAI_BASE_URL
+    elif groq_key:
+        api_key = groq_key
+        model_name = get_env_value("GROQ_MODEL_NAME") or "llama-3.1-8b-instant"
+        base_url = get_env_value("LLM_API_BASE") or get_env_value("OPENAI_API_BASE") or GROQ_OPENAI_BASE_URL
+    else:
+        api_key = openai_key
+        model_name = openai_model or "gpt-4o-mini"
+        base_url = get_env_value("LLM_API_BASE") or get_env_value("OPENAI_API_BASE") or DEFAULT_OPENAI_BASE_URL
+
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY or GROQ_API_KEY environment variable not set.")
+
     try:
         llm = ChatOpenAI(model=model_name, temperature=0, api_key=api_key, base_url=base_url)
     except Exception as exc:  # pragma: no cover - startup failure

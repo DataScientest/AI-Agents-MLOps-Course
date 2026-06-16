@@ -76,13 +76,21 @@ This installs a Git hook that automatically cleans your workspace when switching
 
 *   **Python 3.9+** (for running `make` commands).
 *   **Git** installed.
-*   **Groq API Key:** Obtain a key from [Groq Cloud](https://console.groq.com/keys) and add it to your `.env` file.
+*   **LLM API Key:** Use either a Groq key with the OpenAI-compatible endpoint, or an OpenAI key.
 *   **LangSmith API Key (Essential for observability):** Obtain a key from [LangSmith](https://smith.langchain.com/) and add it to your `.env` file.
 *   **Docker & Docker Compose:** Essential for deploying the entire AIOps stack.
 
 ### 2. Setup (`.env` file)
 
-Create a `.env` file at the root of the project. **Make sure your `GROQ_API_KEY` is correct.**
+Create a `.env` file at the root of the project. For the default Groq setup, set:
+
+```bash
+GROQ_API_KEY="your-groq-api-key-here"
+GROQ_MODEL_NAME="meta-llama/llama-4-scout-17b-16e-instruct"
+LLM_API_BASE="https://api.groq.com/openai/v1"
+```
+
+For OpenAI instead, set `OPENAI_API_KEY`, `OPENAI_MODEL_NAME`, and `LLM_API_BASE="https://api.openai.com/v1"`.
 
 
 ### 3. Deploy the AIOps Stack
