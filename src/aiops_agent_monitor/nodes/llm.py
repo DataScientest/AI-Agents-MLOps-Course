@@ -6,11 +6,10 @@ import logging
 import time
 from typing import Iterable
 
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage, SystemMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import BaseTool
-from langchain_groq import ChatGroq
-import groq
 
 from state import AgentState
 
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def llm_agent_node(
-    llm: ChatGroq,
+    llm: BaseChatModel,
     tools: Iterable[BaseTool],
     system_prompt: str,
 ):
@@ -37,10 +36,9 @@ def llm_agent_node(
             logger.info("LLM produced result: %s", result)
             return {"messages": [result]}
         except Exception as e:
-            # Handle GROQ Rate Limits (429) gracefully by returning a helpful message
-            # rather than crashing the entire workflow with a 500 error.
-            if "rate_limit_exceeded" in str(e).lower() or "429" in str(e):
-                logger.error("GROQ Rate Limit Hit: %s", e)
+            # Handle rate limit errors (HTTP 429) gracefully
+            if "rate_limit" in str(e).lower() or "429" in str(e):
+                logger.error("Rate limit hit: %s", e)
                 error_msg = AIMessage(content="I'm sorry, but I've reached my daily limit for analyzing alerts. Please try again later when my quota resets.")
                 return {"messages": [error_msg]}
             

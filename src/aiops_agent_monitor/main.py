@@ -10,7 +10,8 @@ from typing import Any, Dict, Optional
 
 from fastapi import Body, FastAPI, HTTPException, Request, Response
 from langchain_core.messages import HumanMessage
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
+from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.postgres import PostgresSaver
 from prometheus_client import Counter, Gauge, Histogram, generate_latest
 from psycopg_pool import ConnectionPool
@@ -72,20 +73,21 @@ AGENT_DIAGNOSIS_COUNT = Counter(
 
 AGENT_STATUS_GAUGE.set(1)
 
-def init_llm() -> ChatGroq:
-    groq_key = os.getenv("GROQ_API_KEY")
-    if not groq_key:
-        raise RuntimeError("GROQ_API_KEY environment variable not set for AIOps Agent Service.")
+def init_llm() -> BaseChatModel:
+    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY (or GROQ_API_KEY) environment variable not set.")
 
-    model_name = os.getenv("GROQ_MODEL_NAME")
+    model_name = os.getenv("GROQ_MODEL_NAME", "gpt-4o-mini")
+    base_url = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
     try:
-        llm = ChatGroq(temperature=0, model_name=model_name, groq_api_key=groq_key)
+        llm = ChatOpenAI(model=model_name, temperature=0, api_key=api_key, base_url=base_url)
     except Exception as exc:  # pragma: no cover - startup failure
-        logger.exception("Error initialising LLM for deployed monitor agent")
-        raise RuntimeError("Unable to initialise Groq LLM client") from exc
+        logger.exception("Error initialising LLM")
+        raise RuntimeError("Unable to initialise LLM client") from exc
 
-    LLM_MODEL_INFO.labels(model_name=llm.model_name).set(1)
-    logger.info("LLM %s initialised successfully.", llm.model_name)
+    LLM_MODEL_INFO.labels(model_name=model_name).set(1)
+    logger.info("LLM %s initialised successfully via %s.", model_name, base_url)
     return llm
 
 

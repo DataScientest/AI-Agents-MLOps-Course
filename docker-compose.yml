@@ -21,6 +21,8 @@ services:
     environment:
       - GROQ_API_KEY=${GROQ_API_KEY}
       - GROQ_MODEL_NAME=${GROQ_MODEL_NAME}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_BASE=${OPENAI_API_BASE}
       - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-true}
       - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
       - LANGCHAIN_PROJECT=AIOps-Agent-Core
@@ -96,6 +98,7 @@ services:
       - EMBEDDING_MODEL=${EMBEDDING_MODEL}
       - HUGGINGFACE_TEI_URL=${HUGGINGFACE_TEI_URL}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_BASE=${OPENAI_API_BASE}
       - RAG_TOP_K=${RAG_TOP_K}
       - RAG_SIMILARITY_THRESHOLD=${RAG_SIMILARITY_THRESHOLD}
     depends_on:
@@ -163,6 +166,7 @@ services:
 
   tei:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.2
+    platform: linux/amd64
     container_name: tei
     ports:
       - "8082:8080"

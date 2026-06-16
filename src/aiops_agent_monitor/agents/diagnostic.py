@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Iterable, Optional
 
+from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
-from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.postgres import PostgresSaver
@@ -25,14 +25,14 @@ logger = logging.getLogger(__name__)
 
 
 def build_diagnostic_agent(
-    llm: ChatGroq, 
+    llm: BaseChatModel,
     tools: Iterable[BaseTool],
     checkpointer: Optional[PostgresSaver] = None
 ) -> StateGraph:
     """Create the compiled diagnostic agent graph with optional PostgreSQL checkpointing.
     
     Args:
-        llm: The ChatGroq LLM instance
+        llm: The LLM instance (BaseChatModel)
         tools: Iterable of LangChain tools for the agent
         checkpointer: Optional PostgresSaver for persistent memory
         

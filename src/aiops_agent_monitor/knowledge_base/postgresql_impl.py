@@ -11,6 +11,7 @@ from config import (
     EMBEDDING_PROVIDER,
     EMBEDDING_MODEL,
     OPENAI_API_KEY,
+    OPENAI_API_BASE,
     HUGGINGFACE_TEI_URL,
     RAG_TOP_K,
     RAG_SIMILARITY_THRESHOLD,
@@ -36,7 +37,7 @@ class PostgreSQLKnowledgeBaseImpl:
 
     def _init_embeddings(self):
         if EMBEDDING_PROVIDER == "openai":
-            return OpenAIEmbeddings(api_key=OPENAI_API_KEY, model=EMBEDDING_MODEL)
+            return OpenAIEmbeddings(api_key=OPENAI_API_KEY, model=EMBEDDING_MODEL, base_url=OPENAI_API_BASE)
         elif EMBEDDING_PROVIDER == "huggingface-tei":
             return TEIEmbeddings(endpoint_url=HUGGINGFACE_TEI_URL)
         raise ValueError(f"Unsupported provider: {EMBEDDING_PROVIDER}")
