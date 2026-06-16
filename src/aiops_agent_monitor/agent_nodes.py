@@ -2,7 +2,7 @@ import logging
 
 from typing import List
 
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import Tool
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
 from langchain_core.prompts import ChatPromptTemplate
@@ -12,7 +12,7 @@ from state import AgentState
 
 logger = logging.getLogger(__name__)
 
-def create_llm_tool_agent_node(llm: ChatGroq, tools_for_node: List[Tool]):
+def create_llm_tool_agent_node(llm: BaseChatModel, tools_for_node: List[Tool]):
     system_message_content = (
         "You are an expert MLOps Diagnostic Agent. Your goal is to analyze alerts, "
         "gather relevant data using your tools, and provide clear diagnoses with proposed solutions. "

@@ -22,6 +22,7 @@ from config import (
     EMBEDDING_PROVIDER,
     EMBEDDING_MODEL,
     OPENAI_API_KEY,
+    OPENAI_API_BASE,
     HUGGINGFACE_TEI_URL,
     RAG_TOP_K,
     RAG_SIMILARITY_THRESHOLD,
@@ -111,6 +112,7 @@ class PostgreSQLKnowledgeBaseClient(KnowledgeBaseClient):
             return OpenAIEmbeddings(
                 api_key=OPENAI_API_KEY,
                 model=EMBEDDING_MODEL,
+                base_url=OPENAI_API_BASE,
             )
         elif EMBEDDING_PROVIDER == "huggingface-tei":
             logger.info(f"Using HuggingFace TEI embeddings at {HUGGINGFACE_TEI_URL}")
