@@ -107,7 +107,16 @@ bash scripts/setup-git-hooks.sh
 ```
 
 ### 2. Environment Configuration (`.env`)
-Ensure your `.env` file at the root contains your `GROQ_API_KEY`. Chapter 5 uses the following key setting by default:
+Ensure your `.env` file at the root contains an LLM configuration. For the default Groq setup:
+
+```env
+GROQ_API_KEY="your-groq-api-key-here"
+GROQ_MODEL_NAME="meta-llama/llama-4-scout-17b-16e-instruct"
+LLM_API_BASE="https://api.groq.com/openai/v1"
+```
+
+For OpenAI instead, set `OPENAI_API_KEY`, `OPENAI_MODEL_NAME`, and `LLM_API_BASE="https://api.openai.com/v1"`.
+Chapter 5 uses the following key setting by default:
 ```env
 DEPLOYMENT_MODE="microservices"
 ENABLE_RAG_TOOL="true"

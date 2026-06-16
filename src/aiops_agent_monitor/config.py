@@ -55,7 +55,7 @@ else:
 # Embedding API Configuration
 EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "huggingface-tei")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
+OPENAI_API_BASE = os.getenv("OPENAI_API_BASE") or "https://api.openai.com/v1"
 HUGGINGFACE_TEI_URL = os.getenv("HUGGINGFACE_TEI_URL", "http://tei:8080")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "384"))
