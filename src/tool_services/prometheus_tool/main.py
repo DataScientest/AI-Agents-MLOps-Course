@@ -1,13 +1,14 @@
 import os
 import logging
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional
 from prometheus_client import Counter, Histogram, generate_latest
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 import time
 
 from tool import PrometheusQueryTool
+from mcp_server import handle_mcp_request
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -44,6 +45,25 @@ def health():
 def query(request: QueryRequest):
     result = tool.query_range(request.query, request.time_range_minutes, request.step_seconds, request.target_service)
     return {"result": result}
+
+def _run_tool(name: str, arguments: dict) -> str:
+    # Single dispatch point: MCP names are prefixed, implementation is shared
+    # with the legacy POST /query endpoint (tool.py is untouched).
+    if name == "prometheus.query_range":
+        return tool.query_range(
+            arguments["query"],
+            int(arguments.get("time_range_minutes", 5)),
+            int(arguments.get("step_seconds", 30)),
+            arguments.get("target_service"),
+        )
+    raise ValueError(f"Unknown tool: {name}")
+
+@app.post("/mcp")
+async def mcp(request: Request):
+    """MCP 2026-07-28 stateless endpoint (coexists with legacy POST /query)."""
+    body = await request.json()
+    response_body, status = handle_mcp_request(body, dict(request.headers), _run_tool)
+    return JSONResponse(content=response_body, status_code=status)
 
 @app.get("/metrics")
 def metrics():
