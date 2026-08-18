@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field
 from typing import Optional, Union
 from langchain_core.tools import tool
 
+from tools import mcp_client
+
 logger = logging.getLogger(__name__)
 
 import time
@@ -100,10 +102,14 @@ class RAGKnowledgeSearchInput(BaseModel):
 
 # --- Tool Wrappers (HTTP Proxies) ---
 
+# Chapter 6 (MCP): switch the Prometheus tool transport without touching the
+# agent graph. "http" = legacy Chapter 5 proxy, "mcp" = MCP 2026-07-28 endpoint.
+PROMETHEUS_TRANSPORT = os.getenv("PROMETHEUS_TRANSPORT", "http")
+
 @tool(args_schema=PrometheusQueryInput)
 def PrometheusQuery(query: str, time_range_minutes: Union[int, str] = 5, step_seconds: Union[int, str] = 30, target_service: Optional[str] = None) -> str:
     """Executes a PromQL query via the Prometheus Tool Service."""
-    logger.info(f"Agent Core calling Prometheus Tool Service: {query}")
+    logger.info(f"Agent Core calling Prometheus Tool Service ({PROMETHEUS_TRANSPORT}): {query}")
     def _perform_query():
         payload = {
             "query": query,
@@ -111,6 +117,10 @@ def PrometheusQuery(query: str, time_range_minutes: Union[int, str] = 5, step_se
             "step_seconds": int(step_seconds),
             "target_service": target_service
         }
+        if PROMETHEUS_TRANSPORT == "mcp":
+            return mcp_client.call_tool(
+                PROMETHEUS_TOOL_SERVICE_URL, "prometheus.query_range", payload, timeout=30
+            )
         resp = requests.post(f"{PROMETHEUS_TOOL_SERVICE_URL}/query", json=payload, timeout=30)
         resp.raise_for_status()
         return resp.json().get("result", "Error: No results.")

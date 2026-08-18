@@ -31,6 +31,7 @@ services:
       - POSTGRES_DB_URI=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       - DEPLOYMENT_MODE=microservices
       - PROMETHEUS_TOOL_SERVICE_URL=http://prometheus-tool-service:8001
+      - PROMETHEUS_TRANSPORT=${PROMETHEUS_TRANSPORT:-http}
       - LOKI_TOOL_SERVICE_URL=http://loki-tool-service:8002
       - GRAFANA_TOOL_SERVICE_URL=http://grafana-tool-service:8003
       - SYSTEM_TOOL_SERVICE_URL=http://system-tool-service:8004
