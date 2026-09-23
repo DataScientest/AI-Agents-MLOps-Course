@@ -10,6 +10,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import BaseTool
 from langchain_core.language_models import BaseChatModel
 
+from guardrails import current_run_messages
 from state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,10 @@ def llm_agent_node(
 
     def _node(state: AgentState) -> AgentState:
         logger.info("Node 'llm_agent_node': processing alert %s", state.get("alert_info"))
-        result: BaseMessage = llm_chain.invoke({"messages": state["messages"]})
+        # Only the current diagnosis run goes to the LLM: the checkpointed thread
+        # keeps earlier runs of the same alert fingerprint, which would grow the prompt forever.
+        messages = current_run_messages(state["messages"])
+        result: BaseMessage = llm_chain.invoke({"messages": messages})
         logger.info("LLM produced result: %s", result)
         return {"messages": [result]}
 

@@ -12,7 +12,7 @@ links:
 	@echo "API Gateway (Entrypoint): http://localhost:8000"
 	@echo "Agent Core             : http://localhost:8005"
 	@echo "Prometheus             : http://localhost:9090"
-	@echo "Grafana                : http://localhost:3000"
+	@echo "Grafana                : http://localhost:3001"
 	@echo "Loki                   : http://localhost:3100"
 	@echo "----------------------"
 
@@ -21,7 +21,7 @@ api:
 
 test-api:
 	curl -X 'POST' \
-		'http://localhost:8080/predict' \
+		'http://localhost:8083/predict' \
 		-H 'accept: application/json' \
 		-H 'Content-Type: application/json' \
 		-d '{"text": "What a spectacular shot from Steph Curry!"}'

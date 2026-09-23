@@ -60,8 +60,10 @@ def ready():
     except Exception as e:
         return {"status": "not_ready", "agent_core_status": f"unreachable ({str(e)})"}
 
+# Sync endpoint (def): FastAPI runs it in its thread pool, so a slow diagnosis
+# does not block /health or other requests on the gateway.
 @app.post("/diagnose_alert")
-async def diagnose_alert(payload: Dict[str, Any] = Body(...)):
+def diagnose_alert(payload: Dict[str, Any] = Body(...)):
     REQUEST_COUNT.labels(method='POST', endpoint='/diagnose_alert').inc()
     with REQUEST_LATENCY.time():
         logger.info(f"Forwarding diagnostic request to Agent Core: {AGENT_CORE_SERVICE_URL}")

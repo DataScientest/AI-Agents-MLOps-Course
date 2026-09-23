@@ -119,7 +119,8 @@ RETURNS TRIGGER AS $$
 BEGIN
     -- Only update if feedback has been provided
     IF NEW.outcome IS NOT NULL THEN
-        INSERT INTO alert_type_stats (service_name, alert_type, total_diagnoses, successful_diagnoses, failed_diagnoses, escalated_diagnoses, last_updated)
+        -- First feedback for this alert type: the confidence is 1.0 (success) or 0.0.
+        INSERT INTO alert_type_stats (service_name, alert_type, total_diagnoses, successful_diagnoses, failed_diagnoses, escalated_diagnoses, confidence_score, last_updated)
         VALUES (
             NEW.service_name,
             NEW.alert_type,
@@ -127,6 +128,7 @@ BEGIN
             CASE WHEN NEW.outcome IN ('success', 'partial_success') THEN 1 ELSE 0 END,
             CASE WHEN NEW.outcome = 'failure' THEN 1 ELSE 0 END,
             CASE WHEN NEW.outcome = 'escalated' THEN 1 ELSE 0 END,
+            CASE WHEN NEW.outcome IN ('success', 'partial_success') THEN 1.0 ELSE 0.0 END,
             NOW()
         )
         ON CONFLICT (service_name, alert_type) DO UPDATE SET

@@ -1,4 +1,4 @@
-"""Fixtures partagées : modèles factices, aucune clé API requise."""
+"""Shared fixtures: fake models, no API key required."""
 from typing import Any
 
 import pytest
@@ -7,7 +7,7 @@ from langchain_core.messages import AIMessage
 
 
 class ToolCallingFakeModel(GenericFakeChatModel):
-    """GenericFakeChatModel qui accepte bind_tools (appelé par create_agent)."""
+    """GenericFakeChatModel that accepts bind_tools (called by create_agent)."""
 
     def bind_tools(self, tools: Any, **kwargs: Any) -> "ToolCallingFakeModel":
         return self

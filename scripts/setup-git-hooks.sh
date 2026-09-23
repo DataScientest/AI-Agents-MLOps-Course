@@ -66,7 +66,7 @@ if [ "$branch_switch" = "1" ]; then
         [ -f .env.bak ] && mv .env.bak .env
         
         echo "✅ Workspace cleaned for $new_branch"
-        echo "   Preserved: .env, en/, docs/ folders"
+        echo "   Preserved: .env, en/, docs/ folders and all git-ignored files (.venv/, caches, ...)"
         echo ""
     fi
 fi
@@ -83,7 +83,8 @@ echo "   • Preserves your .env file (API keys)"
 echo "   • Preserves your en/ folder (course content)"
 echo "   • Preserves your docs/ folder (documentation)"
 echo "   • Only removes UNTRACKED files (never touches ignored files)"
-echo "   • Only activates when switching to chapter-1, chapter-2, chapter-3, etc."
+echo "   • Also keeps every git-ignored file (.venv/, local scripts listed in .gitignore, ...)"
+echo "   • Only activates when the local branch is named exactly chapter-1, chapter-2, chapter-3, etc."
 echo ""
 echo "🎯 Try it out:"
 echo "   git checkout chapter-2"
