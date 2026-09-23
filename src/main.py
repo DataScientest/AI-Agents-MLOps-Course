@@ -46,7 +46,7 @@ def setup_llm() -> ChatGroq:
     try:
         llm = ChatGroq(
             temperature=0,
-            model_name="llama-3.1-8b-instant",
+            model_name=os.getenv("GROQ_MODEL_NAME", "openai/gpt-oss-20b"),
             groq_api_key=groq_api_key
         )
         logger.info(f"✓ LLM initialized: {llm.model_name}")

@@ -5,7 +5,8 @@ from typing import List
 from langchain_groq import ChatGroq
 from langchain_core.tools import Tool
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
-from langgraph.prebuilt import ToolNode, create_react_agent
+from langchain.agents import create_agent
+from langgraph.prebuilt import ToolNode
 
 from src.state import AgentState # Import our graph state
 
@@ -15,14 +16,14 @@ logger = logging.getLogger(__name__)
 # This node can be reused in different graphs for agent logic.
 # It encapsulates the logic of a LangGraph ReAct agent within a graph node.
 def create_llm_tool_agent_node(llm: ChatGroq, tools_for_node: List[Tool]):
-    # LangGraph's prebuilt ReAct agent handles the tool loop directly.
+    # LangChain's create_agent (a compiled LangGraph graph) handles the tool loop directly.
     system_prompt = (
         "You are an AI assistant capable of using tools to solve problems. "
         "Use the available tools when they help answer the user's request, "
         "then provide a concise final answer."
     )
 
-    agent_runnable = create_react_agent(llm, tools_for_node, prompt=system_prompt)
+    agent_runnable = create_agent(llm, tools_for_node, system_prompt=system_prompt)
     
     # The node that interacts with the state and calls the Runnable agent.
     # In LangGraph, a node takes the state and returns state updates.

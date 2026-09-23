@@ -40,7 +40,8 @@ AI-Agents-MLOps-Course/
 │       └── human_in_loop_agent/   # Node implementations for human-in-loop pattern
 ├── src/tools/
 │   └── mlops_tools.py             # Simulated monitoring tools
-└── requirements.txt
+├── tests/                     # Offline pytest suite (fake LLM)
+└── pyproject.toml / uv.lock      # Pinned dependencies (uv sync)
 ```
 
 ## How to Run the Project
@@ -59,7 +60,7 @@ This installs a Git hook that automatically cleans your workspace when switching
 
 ### 1. Prerequisites
 
-*   **Python 3.9+** installed.
+*   **Python 3.13+** installed (see `.python-version`).
 *   **`uv` installed:** `pip install uv` (or use `pip` directly for dependency management).
 *   **Git** installed.
 *   **Groq API Key:** Obtain a key from [Groq Cloud](https://console.groq.com/keys) and add it to your `.env` file.
@@ -71,6 +72,7 @@ Create a `.env` file at the root of the project :
 
 ```txt
 GROQ_API_KEY="your_groq_api_key_here"
+GROQ_MODEL_NAME="openai/gpt-oss-20b"
 LANGCHAIN_TRACING_V2="true"
 LANGCHAIN_API_KEY="your_langsmith_api_key_here"
 LANGCHAIN_PROJECT="MLOps Guard Agent - Chapter 2 (LangGraph Patterns)"
@@ -82,6 +84,7 @@ Use the provided `Makefile` for ease of use.
 
 1. Sync the virtual environment with `uv sync`.
 2. Run the agents with `make demo`.
+3. Run the offline tests with `uv run pytest`.
 
 ### 4. Observe with LangSmith (Recommended)
 
@@ -93,7 +96,7 @@ While the agents run, open your browser and navigate to [https://smith.langchain
 ======================================================================
 LangGraph Agent Patterns - Chapter 2 Demo
 ======================================================================
-2025-10-23 14:55:34,247 - __main__ - INFO - ✓ LLM initialized: llama-3.1-8b-instant
+2025-10-23 14:55:34,247 - __main__ - INFO - ✓ LLM initialized: openai/gpt-oss-20b
 
 ======================================================================
 PATTERN 0: Linear Workflow (Health Report Agent)

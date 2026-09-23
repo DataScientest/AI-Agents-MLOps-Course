@@ -1,4 +1,4 @@
-.PHONY: help demo demo-linear demo-conditional demo-loop demo-human clean
+.PHONY: help demo demo-linear demo-conditional demo-loop demo-human clean test
 
 # Default target
 help:
@@ -42,9 +42,9 @@ clean:
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	@echo "Done!"
 
-#test:
-#	@echo "Running tests..."
-#	pytest -v tests
+test:
+	@echo "Running tests..."
+	uv run pytest -v
 
 # Alias for backwards compatibility
 all: demo
