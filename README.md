@@ -14,7 +14,7 @@ AI-Agents-MLOps-Course/
 ├── src/
 │ ├── init.py
 │ └── main.py # Main script: LLM setup, tool definition, agent creation, and test execution
-├── requirements.txt # Python dependencies
+├── pyproject.toml # Python dependencies (pinned, locked in uv.lock)
 ├── prompts/
 │ └── system_prompt.txt # Custom system prompt for the Calculator Agent's persona
 └── tools/
@@ -38,7 +38,7 @@ This installs a Git hook that automatically cleans your workspace when switching
 
 ### 1. Prerequisites
 
-*   **Python 3.9+** installed.
+*   **Python 3.13+** installed (see `.python-version`).
 *   **`uv` installed:** `pip install uv` (or use `pip` directly for dependency management).
 *   **Git** installed.
 *   **Groq API Key:** Obtain a key from [Groq Cloud](https://console.groq.com/keys) and add it to your `.env` file.
@@ -63,10 +63,8 @@ Use the provided `Makefile` for ease of use.
     make
     ```
     This command will:
-    1.  Create a virtual environment (`uv venv`).
-    2.  Install dependencies from `requirements.txt` (`uv pip install -r requirements.txt`).
-    3.  Activate the virtual environment.
-    4.  Execute the main agent script (`python3 -m src.main`).
+    1.  Create the virtual environment and install the locked dependencies (`uv sync`).
+    2.  Execute the main agent script (`uv run python -m src.main`).
 
 ### 4. Observe with LangSmith (Recommended)
 
@@ -76,7 +74,7 @@ While the agent runs, open your browser and navigate to [https://smith.langchain
 
 ```bash
 (AI-Agents-MLOps-Course) ➜  AI-Agents-MLOps-Course git:(chapter-1) ✗ python3 -m src.main
-2025-09-02 17:35:57,666 - INFO - Client Groq LLM 'llama-3.1-8b-instant' initialisé avec succès.
+2025-09-02 17:35:57,666 - INFO - Client Groq LLM 'openai/gpt-oss-20b' initialisé avec succès.
 2025-09-02 17:35:57,666 - INFO - 1 outils définis et prêts pour l'agent.
 2025-09-02 17:35:57,672 - INFO - Prompt ReAct chargé depuis 'prompts/system_prompt.txt'.
 2025-09-02 17:35:57,672 - INFO - ChatPromptTemplate ReAct créé avec succès et contenu personnalisé.
