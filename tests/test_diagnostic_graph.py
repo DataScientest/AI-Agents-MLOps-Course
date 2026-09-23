@@ -1,4 +1,4 @@
-"""Tests du graphe de diagnostic (Agent Core) avec un modèle factice, sans clé API."""
+"""Tests of the diagnostic graph (Agent Core) with a fake model, no API key."""
 import os
 
 import pytest
@@ -75,7 +75,7 @@ def test_checkpointer_persists_between_two_calls(fake_model):
 
 
 def test_interrupt_resumed_with_command():
-    """Validation humaine avant action : interrupt() puis Command(resume=...)."""
+    """Human approval before action: interrupt() then Command(resume=...)."""
     def approve(state: AgentState):
         decision = interrupt({"alert": state["alert_info"]})
         return {"final_result": decision}
@@ -94,7 +94,11 @@ def test_interrupt_resumed_with_command():
 
 @pytest.mark.live
 def test_live_groq_model_answers():
-    from langchain_groq import ChatGroq
+    from langchain_openai import ChatOpenAI
 
-    llm = ChatGroq(model_name=os.getenv("GROQ_MODEL_NAME", "openai/gpt-oss-120b"), temperature=0)
+    llm = ChatOpenAI(
+        model=os.getenv("GROQ_MODEL_NAME", "openai/gpt-oss-20b"),
+        api_key=os.environ["GROQ_API_KEY"],
+        base_url=os.getenv("LLM_API_BASE") or "https://api.groq.com/openai/v1",
+    )
     assert llm.invoke("Reply with the single word: pong").content

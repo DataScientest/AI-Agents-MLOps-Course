@@ -42,5 +42,5 @@ show-agent-steps:
 		printf '{"error":"aiops-agent-monitor container not running"}\n'; exit 1; \
 	fi; \
 	container_name=$$(docker inspect --format '{{.Name}}' $$container_id | sed 's:^/::'); \
-	docker logs $$container_id --since 10m --tail 400 | \
+	docker logs $$container_id --since 10m --tail 400 2>&1 | \
 	python3 scripts/show_agent_steps.py "$$container_name"

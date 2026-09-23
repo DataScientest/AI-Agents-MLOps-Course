@@ -18,7 +18,10 @@ services:
       - .env
     environment:
       - GROQ_API_KEY=${GROQ_API_KEY}
-      - GROQ_MODEL_NAME=${GROQ_MODEL_NAME:-openai/gpt-oss-120b}
+      - GROQ_MODEL_NAME=${GROQ_MODEL_NAME:-openai/gpt-oss-20b}
+      - LLM_API_BASE=${LLM_API_BASE:-}
+      - AGENT_RECURSION_LIMIT=${AGENT_RECURSION_LIMIT:-12}
+      - TOOL_OUTPUT_MAX_CHARS=${TOOL_OUTPUT_MAX_CHARS:-2000}
       - LANGCHAIN_TRACING_V2="true"
       - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
       - LANGCHAIN_PROJECT="AIOps Monitor Agent Internal Runs"

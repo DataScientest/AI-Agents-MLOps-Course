@@ -11,7 +11,9 @@ DIAGNOSTIC_SYSTEM_PROMPT = (
 
 FINAL_SUMMARY_SYSTEM_PROMPT = (
     "You are an expert site reliability assistant. Summarise the findings gathered from metrics, logs, "
-    "and dashboards. Provide a clear diagnosis, outline likely root causes, and recommend next steps."
+    "and dashboards. Base the diagnosis on the tool results you are given and cite the relevant values; "
+    "if a tool returned no data or an error, say so instead of guessing. "
+    "Provide a clear diagnosis, outline likely root causes, and recommend next steps."
 )
 
 FINAL_SUMMARY_HUMAN_TEMPLATE = (
@@ -19,5 +21,7 @@ FINAL_SUMMARY_HUMAN_TEMPLATE = (
     "Prometheus data: {prometheus_data}\n"
     "Loki logs: {loki_logs}\n"
     "Grafana link: {grafana_link}\n"
+    "Other tool results: {other_tool_results}\n"
+    "Investigation notes: {investigation_notes}\n"
     "Based on this evidence, produce a concise diagnosis and proposed remediation steps."
 )

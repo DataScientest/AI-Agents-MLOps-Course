@@ -42,7 +42,12 @@ Create a `.env` file at the root of the project. **Make sure your `GROQ_API_KEY`
 
 ```
 GROQ_API_KEY="your_groq_api_key_here"
-GROQ_MODEL_NAME="openai/gpt-oss-120b"
+GROQ_MODEL_NAME="openai/gpt-oss-20b"
+# Optional: OpenAI-compatible endpoint used with GROQ_API_KEY (empty = Groq)
+# LLM_API_BASE="https://api.groq.com/openai/v1"
+# Agent guardrails (optional)
+AGENT_RECURSION_LIMIT="12"      # max graph steps per diagnosis
+TOOL_OUTPUT_MAX_CHARS="2000"    # max characters of each tool result sent to the LLM
 LANGCHAIN_TRACING_V2="true"
 LANGCHAIN_API_KEY="your_langsmith_api_key_here"
 LANGCHAIN_PROJECT="MLOps Guard Agent - Chapter 3"
