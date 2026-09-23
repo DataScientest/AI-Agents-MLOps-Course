@@ -81,7 +81,7 @@ class PrometheusQueryInput(BaseModel):
     target_service: Optional[str] = Field(default=None, description="The specific service to filter metrics for, e.g., 'news-classifier-api'.")
 
 class LokiLogSearchInput(BaseModel):
-    query: str = Field(description="The LogQL query to execute on Loki, e.g., '{job=\"docker\", container_name=\"news-classifier-api\"} |= \"error\"'.")
+    query: str = Field(description="The LogQL query to execute on Loki, e.g., '{job=\"docker\", service=\"news-classifier-api\"} |= \"error\"'.")
     time_range_minutes: Union[int, str] = Field(default=5, description="The time range in minutes for the query.")
     limit: Union[int, str] = Field(default=10, description="Maximum number of log lines to return.")
     target_service: Optional[str] = Field(default=None, description="The specific service to filter logs for, e.g., 'news-classifier-api'.")

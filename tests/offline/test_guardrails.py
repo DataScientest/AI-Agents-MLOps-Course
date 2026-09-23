@@ -6,6 +6,7 @@
 - a reused thread (same fingerprint) sends only the new alert to the LLM;
 - LLM endpoint choice (LLM_API_BASE, never OPENAI_API_BASE for a Groq key);
 - a provider 429/413 error surfaces as an explicit error, not as a success.
+- the diagnostic system prompt lists the metrics and labels of this stack.
 """
 import itertools
 
@@ -143,6 +144,19 @@ def test_final_summary_receives_the_tool_results():
     assert "Investigation notes: CPU saturé" in summary_prompt
     assert result["prometheus_data"] == "cpu=95%"
     assert tools_called(result["messages"]) == ["PrometheusQuery"]
+
+
+def test_system_prompt_lists_the_available_metrics_and_labels():
+    """The agent is told which PromQL/LogQL queries return data in this stack."""
+    llm = recording_model(AIMessage(content="ok"), AIMessage(content="Diagnostic final"))
+    build_diagnostic_agent(llm, [PrometheusQuery]).invoke(alert_state())
+
+    system_prompt = str(LLM_INPUTS[0][0].content)
+    # Braces of the PromQL/LogQL examples reach the model unchanged (no template formatting)
+    assert 'rate(node_cpu_seconds_total{mode="idle"}[5m])' in system_prompt
+    assert 'up{job="news_classifier_api"}' in system_prompt
+    assert '{job="docker", service="news-classifier-api"}' in system_prompt
+    assert "container_*" in system_prompt  # named as missing, so the model does not query it
 
 
 def test_reused_thread_sends_only_the_new_alert_to_the_llm():
