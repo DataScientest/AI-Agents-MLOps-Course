@@ -2,7 +2,7 @@
 import logging
 from typing import List
 
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import Tool
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langchain.agents import create_agent
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # --- Definition of a generic agent node for LLMs with tools ---
 # This node can be reused in different graphs for agent logic.
 # It encapsulates the logic of a LangGraph ReAct agent within a graph node.
-def create_llm_tool_agent_node(llm: ChatGroq, tools_for_node: List[Tool]):
+def create_llm_tool_agent_node(llm: BaseChatModel, tools_for_node: List[Tool]):
     # LangChain's create_agent (a compiled LangGraph graph) handles the tool loop directly.
     system_prompt = (
         "You are an AI assistant capable of using tools to solve problems. "

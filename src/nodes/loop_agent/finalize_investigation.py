@@ -16,6 +16,6 @@ def finalize_investigation_node(state: AgentState):
             f"Investigation completed: No logs found after {state['investigation_step']} attempts."
         )
     return {
-        "messages": state["messages"] + [AIMessage(content=final_msg)],
+        "messages": [AIMessage(content=final_msg)],
         "final_result": final_msg,
     }

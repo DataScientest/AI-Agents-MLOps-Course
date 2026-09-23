@@ -10,4 +10,5 @@ def feedback_decision_node(state: AgentState):
         "Node 'feedback_decision_node': Graph has reached decision point for human feedback. "
         f"Current human_feedback: {state.get('human_feedback')}"
     )
-    return state
+    # Decision point only: no state update, route_on_feedback reads human_feedback
+    return {}

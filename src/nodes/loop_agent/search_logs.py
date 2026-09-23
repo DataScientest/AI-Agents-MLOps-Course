@@ -1,6 +1,6 @@
 import logging
 
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -10,16 +10,18 @@ from src.tools.mlops_tools import search_logs
 logger = logging.getLogger(__name__)
 
 
-def build_search_logs_node(llm_client: ChatGroq):
+def build_search_logs_node(llm_client: BaseChatModel):
     def search_logs_node(state: AgentState):
         logger.info(
             f"Node 'search_logs': Search step {state['investigation_step']} for '{state['investigation_query']}'"
         )
         search_result = search_logs(state["investigation_query"])
 
-        found = "log trouvé" in search_result.lower()
+        # search_logs() answers "Found logs matching ..." or "No relevant logs found ..."
+        found = search_result.lower().startswith("found logs")
         updated_step = state["investigation_step"] + 1
-        new_messages = state["messages"] + [
+        # Only return the new messages: the add_messages reducer appends them to the history
+        new_messages = [
             AIMessage(content=f"Log search for '{state['investigation_query']}' : {search_result}")
         ]
 

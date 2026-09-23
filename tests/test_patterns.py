@@ -1,4 +1,4 @@
-"""Tests des 4 patterns LangGraph du chapitre 2, avec un modèle factice."""
+"""Tests of the 4 LangGraph patterns of chapter 2, with a fake model."""
 import os
 
 import pytest
@@ -55,13 +55,40 @@ def test_loop_stops_on_max_steps(fake_model):
     assert result["investigation_step"] == 2
 
 
+def test_loop_exits_when_logs_found(fake_model, monkeypatch):
+    """End-to-end success exit: the tool finds logs, the loop stops without any LLM call."""
+    monkeypatch.setattr("src.tools.mlops_tools.random.random", lambda: 0.0)  # search_logs always finds logs
+    agent = create_log_investigator_agent(fake_model(), [])  # no message: any LLM call would fail
+    result = agent.invoke(full_state(
+        messages=[HumanMessage(content="Find logs concerning 'error'.")],
+        investigation_query="error", max_investigation_steps=5,
+    ))
+    assert result["logs_found"] is True
+    assert result["investigation_step"] == 1
+    assert result["final_result"] == "Investigation completed: Relevant logs found."
+
+
+def test_loop_refines_query_then_finds_logs(fake_model, monkeypatch):
+    """First search finds nothing, the LLM suggests a query, the second search finds logs."""
+    draws = iter([0.9, 0.0])  # 1st draw: nothing found; 2nd draw: logs found
+    monkeypatch.setattr("src.tools.mlops_tools.random.random", lambda: next(draws))
+    agent = create_log_investigator_agent(fake_model(AIMessage(content="error 500")), [])
+    result = agent.invoke(full_state(
+        messages=[HumanMessage(content="Find logs concerning 'error'.")],
+        investigation_query="error", max_investigation_steps=5,
+    ))
+    assert result["logs_found"] is True
+    assert result["investigation_step"] == 2
+    assert result["investigation_query"] == "error 500"
+    contents = [m.content for m in result["messages"]]
+    assert len(contents) == len(set(contents))  # no duplicated history
+
+
 @pytest.mark.parametrize(
     "logs_found, step, expected",
     [(True, 1, "end_investigation"), (False, 5, "end_investigation"), (False, 1, "search_logs_node")],
 )
 def test_loop_exit_conditions(logs_found, step, expected):
-    # NB : search_node compare "log trouvé" à une sortie d'outil en anglais, donc
-    # logs_found reste False de bout en bout (cf. MIGRATION_REPORT.md). On teste le routage seul.
     from src.nodes.loop_agent import continue_investigation
 
     state = full_state(logs_found=logs_found, investigation_step=step, max_investigation_steps=5)
@@ -69,21 +96,31 @@ def test_loop_exit_conditions(logs_found, step, expected):
 
 
 @pytest.mark.parametrize("feedback, node_message", [("approved", "Action applied"), ("rejected", "Action rejected")])
-def test_human_in_loop_state_flag_pattern(fake_model, feedback, node_message):
-    """Pattern enseigné au chapitre 2 : pause via human_feedback vide, reprise en relançant avec l'état mis à jour."""
-    # Le graphe repart de l'entrée à la reprise : propose_action rappelle le LLM.
-    llm = fake_model(AIMessage(content="Restart service X"), AIMessage(content="Restart service X"))
-    agent = create_human_in_loop_agent(llm, [])
+def test_human_in_loop_state_flag_pattern(fake_model, feedback, node_message, monkeypatch):
+    """Pattern taught in chapter 2: pause on empty human_feedback, resume by re-invoking with the updated state."""
+    # A single fake message: if the resume called propose_action (hence the LLM) again, the test would fail.
+    agent = create_human_in_loop_agent(fake_model(AIMessage(content="Restart service X")), [])
+    applied = []
+    monkeypatch.setattr(
+        "src.nodes.human_in_loop_agent.apply_action.apply_fix",
+        lambda fix: applied.append(fix) or "Fix applied: Service restart requested.",
+    )
+
     paused = agent.invoke(full_state(messages=[HumanMessage(content="Problem: high latency")]))
     assert paused["proposed_action"] == "Restart service X"
     assert paused.get("final_result") is None
 
     resumed = agent.invoke({**paused, "human_feedback": feedback})
     assert resumed["final_result"].startswith(node_message)
+    assert resumed["proposed_action"] == "Restart service X"
+    # The applied action is exactly the proposed one (and only when approved)
+    assert applied == (["Restart service X"] if feedback == "approved" else [])
+    proposals = [m for m in resumed["messages"] if m.content.startswith("Proposed action:")]
+    assert len(proposals) == 1  # nodes only return their new messages
 
 
 def test_interrupt_resumed_with_command_and_checkpointer():
-    """Primitive LangGraph 1.x : interrupt() + Command(resume=...) sur l'état du chapitre."""
+    """LangGraph 1.x primitive: interrupt() + Command(resume=...) on the chapter state."""
     def propose(state: AgentState):
         return {"proposed_action": "Restart service X"}
 
