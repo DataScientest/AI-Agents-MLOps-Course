@@ -50,7 +50,7 @@ def main():
         print("ERROR: GROQ_API_KEY environment variable not set.")
         sys.exit(1)
 
-    model_name = os.getenv("GROQ_MODEL_NAME", "llama-3.3-70b-versatile")
+    model_name = os.getenv("GROQ_MODEL_NAME", "openai/gpt-oss-120b")
     llm = ChatGroq(temperature=0, model_name=model_name, groq_api_key=groq_api_key)
     print(f"Initialized LLM: {model_name}")
 

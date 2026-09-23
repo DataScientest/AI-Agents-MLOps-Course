@@ -76,7 +76,7 @@ def init_llm() -> ChatGroq:
     if not groq_key:
         raise RuntimeError("GROQ_API_KEY environment variable not set for AIOps Agent Service.")
 
-    model_name = os.getenv("GROQ_MODEL_NAME")
+    model_name = os.getenv("GROQ_MODEL_NAME", "openai/gpt-oss-120b")
     try:
         llm = ChatGroq(temperature=0, model_name=model_name, groq_api_key=groq_key)
     except Exception as exc:  # pragma: no cover - startup failure
