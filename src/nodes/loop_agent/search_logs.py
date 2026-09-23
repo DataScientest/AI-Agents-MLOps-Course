@@ -31,7 +31,7 @@ def build_search_logs_node(llm_client: BaseChatModel):
             "logs_found": found,
         }
 
-        if not found and updated_step <= state["max_investigation_steps"]:
+        if not found and updated_step < state["max_investigation_steps"]:
             llm_thought_prompt = ChatPromptTemplate.from_messages([
                 SystemMessage(
                     "You are a log search expert. If a search yielded no results, propose a slight variation of the query for the next attempt. Be concise and give only the new query."
