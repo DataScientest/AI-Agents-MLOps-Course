@@ -1,4 +1,4 @@
-"""Tests de l'agent Calculatrice (chapitre 1) avec un modèle factice."""
+"""Tests of the Calculator agent (chapter 1) with a fake model."""
 import os
 import re
 
@@ -29,7 +29,7 @@ def calculator_tools():
 
 
 def test_compiled_graph_runs_react_loop(fake_model):
-    """Graphe compilé exécuté : Raisonner -> Agir (outil) -> Observer -> Réponse."""
+    """Compiled graph run: Reason -> Act (tool) -> Observe -> Answer."""
     llm = fake_model(
         tool_call("Calculatrice", {"expression": "sqrt(144) + 5"}),
         AIMessage(content="La réponse est 17.0"),
@@ -44,7 +44,7 @@ def test_compiled_graph_runs_react_loop(fake_model):
 
 
 def test_conditional_branch_two_paths(fake_model):
-    """Branche 1 : appel d'outil. Branche 2 : réponse directe, sans outil."""
+    """Branch 1: tool call. Branch 2: direct answer, no tool."""
     with_tool = create_agent(
         fake_model(tool_call("Calculatrice", {"expression": "2 + 2"}), AIMessage(content="4")),
         calculator_tools(),
@@ -58,7 +58,7 @@ def test_conditional_branch_two_paths(fake_model):
 
 
 def test_loop_stops_when_model_stops_calling_tools(fake_model):
-    """La boucle ReAct enchaîne plusieurs outils et s'arrête sans tool_calls."""
+    """The ReAct loop chains several tool calls and stops when there are no tool_calls."""
     llm = fake_model(
         tool_call("Calculatrice", {"expression": "123 * 456"}, "c1"),
         tool_call("Calculatrice", {"expression": "56088 + 789"}, "c2"),
@@ -72,7 +72,7 @@ def test_loop_stops_when_model_stops_calling_tools(fake_model):
 
 
 def test_recursion_limit_stops_runaway_loop(fake_model):
-    """recursion_limit (cf. cours, partie 2) coupe une boucle infinie."""
+    """recursion_limit (see course, part 2) stops an infinite loop."""
     from langgraph.errors import GraphRecursionError
 
     llm = fake_model(*[tool_call("Calculatrice", {"expression": "1 + 1"}, f"c{i}") for i in range(50)])
@@ -82,7 +82,7 @@ def test_recursion_limit_stops_runaway_loop(fake_model):
 
 
 def test_human_in_the_loop_interrupt_and_resume(fake_model):
-    """interrupt() avant l'outil, reprise avec Command(resume=...)."""
+    """interrupt() before the tool, resume with Command(resume=...)."""
     llm = fake_model(
         tool_call("Calculatrice", {"expression": "789 - 123"}),
         AIMessage(content="666"),
@@ -105,7 +105,7 @@ def test_human_in_the_loop_interrupt_and_resume(fake_model):
 
 
 def test_checkpointer_persists_between_two_calls(fake_model):
-    """Deux invoke sur le même thread_id : l'historique est conservé."""
+    """Two invokes on the same thread_id: the history is kept."""
     llm = fake_model(AIMessage(content="Bonjour Alice"), AIMessage(content="Tu t'appelles Alice"))
     agent = create_agent(llm, calculator_tools(), checkpointer=InMemorySaver())
     config = {"configurable": {"thread_id": "memoire"}}
@@ -120,7 +120,7 @@ def test_checkpointer_persists_between_two_calls(fake_model):
 
 
 def test_main_runs_end_to_end_with_fake_llm(fake_model, monkeypatch, capsys):
-    """src/main.py tourne de bout en bout ; le modèle vient de GROQ_MODEL_NAME."""
+    """src/main.py runs end to end; the model comes from GROQ_MODEL_NAME."""
     answers = [
         tool_call("Calculatrice", {"expression": "sqrt(144) + 5"}),
         AIMessage(content="17.0"),
@@ -149,7 +149,7 @@ def test_main_runs_end_to_end_with_fake_llm(fake_model, monkeypatch, capsys):
 
 @pytest.mark.live
 def test_live_agent_uses_calculator():
-    """Appel réel (GROQ_API_KEY requis) : pytest -m live."""
+    """Real call (GROQ_API_KEY required): pytest -m live."""
     from langchain_openai import ChatOpenAI
 
     llm = ChatOpenAI(

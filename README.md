@@ -34,7 +34,7 @@ This project uses `uv` for dependency management and `Makefile` for simplified c
 bash scripts/setup-git-hooks.sh
 ```
 
-This installs a Git hook that automatically cleans your workspace when switching between chapter branches, while preserving your `.env` file and `en/` folder. This ensures a clean slate when moving between chapters.
+This installs a Git hook that automatically cleans untracked files when switching between chapter branches, while preserving your `.env` file, the `en/` and `docs/` folders and every git-ignored file (`.venv/`, `src/simple_chat.py`, ...). It only runs when the local branch is named exactly `chapter-N` (for example `git checkout chapter-1`). Commit or discard your changes to tracked files (such as `src/main.py`) before switching, otherwise git refuses the checkout.
 
 ### 1. Prerequisites
 
@@ -46,12 +46,21 @@ This installs a Git hook that automatically cleans your workspace when switching
 
 ### 2. Setup (`.env` file)
 
-Create a `.env` file at the root of the project:
+Create a `.env` file at the root of the project from the template, then fill in your key:
+```bash
+cp .env.example .env
+```
 ```
 GROQ_API_KEY="your_groq_api_key_here"
-LANGCHAIN_TRACING_V2="true"
-LANGCHAIN_API_KEY="your_langsmith_api_key_here"
-LANGCHAIN_PROJECT="Calculator Agent"
+GROQ_MODEL_NAME="openai/gpt-oss-20b"
+# Optional: any OpenAI-compatible endpoint (Groq by default)
+# LLM_API_BASE="https://api.groq.com/openai/v1"
+
+# Optional: LangSmith tracing
+# LANGCHAIN_TRACING_V2="true"
+# LANGCHAIN_API_KEY="your_langsmith_api_key_here"
+# LANGCHAIN_PROJECT="AIOPS - Chapter 1"
+# LANGCHAIN_ENDPOINT="https://api.smith.langchain.com"
 ```
 
 ### 3. Build and Run
@@ -68,7 +77,7 @@ Use the provided `Makefile` for ease of use.
 
 ### 4. Observe with LangSmith (Recommended)
 
-While the agent runs, open your browser and navigate to [https://smith.langchain.com/](https://smith.langchain.com/). Log in and find the project "MLOps Guard Agent - Chapter 1 (Calculator)" to observe the detailed traces of the agent's execution, including its thoughts, actions, and tool calls.
+While the agent runs, open your browser and navigate to [https://smith.langchain.com/](https://smith.langchain.com/). Log in and find the project "AIOPS - Chapter 1" to observe the detailed traces of the agent's execution, including its thoughts, actions, and tool calls.
 
 ### 5. Expected Agent Output :
 
@@ -84,7 +93,7 @@ $ uv run python -m src.main
 --- Question 1: Quelle est la racine carrée de 144 plus 5 ? ---
 ... - INFO - Outil 'calculatrice' appelé avec l'expression: 'sqrt(144) + 5'
 ... - INFO - Résultat de l'expression 'sqrt(144) + 5': 17.0
-Réponse finale de l'agent: The square root of 144 is 12, and 12 + 5 = 17.0
+Réponse finale de l'agent: La racine carrée de 144 plus 5 vaut **17**.
 ---------------------------------
 ...
 --- Fin des tests de l'agent ---
