@@ -92,7 +92,7 @@ def init_llm() -> BaseChatModel:
         base_url = get_env_value("LLM_API_BASE") or get_env_value("OPENAI_API_BASE") or DEFAULT_OPENAI_BASE_URL
     elif groq_key:
         api_key = groq_key
-        model_name = get_env_value("GROQ_MODEL_NAME") or "llama-3.1-8b-instant"
+        model_name = get_env_value("GROQ_MODEL_NAME") or "openai/gpt-oss-120b"
         base_url = get_env_value("LLM_API_BASE") or get_env_value("OPENAI_API_BASE") or GROQ_OPENAI_BASE_URL
     else:
         api_key = openai_key

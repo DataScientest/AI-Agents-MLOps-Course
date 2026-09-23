@@ -111,7 +111,7 @@ Ensure your `.env` file at the root contains an LLM configuration. For the defau
 
 ```env
 GROQ_API_KEY="your-groq-api-key-here"
-GROQ_MODEL_NAME="meta-llama/llama-4-scout-17b-16e-instruct"
+GROQ_MODEL_NAME="openai/gpt-oss-120b"
 LLM_API_BASE="https://api.groq.com/openai/v1"
 ```
 

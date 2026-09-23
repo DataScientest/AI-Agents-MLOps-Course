@@ -43,3 +43,9 @@ logs:
 status:
 	@echo "Checking health of the microservices mesh..."
 	@curl -s http://localhost:8000/health/mesh | jq '. | to_entries[] | {service: .key, status: .value}'
+
+# Offline tests (fake LLM, no API key, no Docker): same pinned deps as the Agent Core image
+test-offline:
+	cd tests/offline && uv run --no-project --python 3.12 \
+		--with-requirements ../../src/aiops_agent_monitor/requirements.txt \
+		--with pytest==9.1.1 pytest -v
