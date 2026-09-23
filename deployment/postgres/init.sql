@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS incident_knowledge (
     solution TEXT NOT NULL,
 
     -- Vector embedding for semantic search
-    -- OpenAI ada-002 = 1536 dimensions
+    -- OpenAI text-embedding-3-small = 1536 dimensions
     -- HuggingFace bge-small-en-v1.5 = 384 dimensions
     embedding vector(384),  -- Change based on your embedding model
 

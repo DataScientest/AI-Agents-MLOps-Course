@@ -216,7 +216,7 @@ Create a `.env` file (or copy from `.env.example`):
 ```env
 # LLM Configuration
 GROQ_API_KEY=your_groq_api_key_here
-GROQ_MODEL_NAME=meta-llama/llama-4-scout-17b-16e-instruct
+GROQ_MODEL_NAME=openai/gpt-oss-120b
 LLM_API_BASE=https://api.groq.com/openai/v1
 
 # For OpenAI instead, set:
