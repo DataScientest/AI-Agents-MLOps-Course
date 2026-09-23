@@ -81,7 +81,7 @@ def PrometheusQuery(query: str, time_range_minutes: int, step_seconds: int, targ
 # --- Loki Log Search Tool ---
 class LokiLogSearchInput(BaseModel):
     """Schema for LokiLogSearch tool input."""
-    query: str = Field(description="The LogQL query to execute on Loki, e.g., '{job=\"docker\", container_name=\"news-classifier-api\"} |= \"error\"'.")
+    query: str = Field(description="The LogQL query to execute on Loki, e.g., '{job=\"docker\", service=\"news-classifier-api\"} |= \"error\"'.")
     time_range_minutes: int = Field(default=5, description="The time range in minutes for the query.")
     limit: int = Field(default=10, description="Maximum number of log lines to return.")
     target_service: Optional[str] = Field(default=None, description="The specific service to filter logs for, e.g., 'news-classifier-api'.")
