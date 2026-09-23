@@ -18,6 +18,9 @@ from psycopg_pool import ConnectionPool
 from psycopg.rows import dict_row
 
 from agents import build_diagnostic_agent
+from guardrails import degraded_diagnosis_message, invoke_diagnosis, tools_called
+from llm_settings import resolve_llm_settings
+from nodes.llm import LLMRateLimitError
 from state import AgentState
 from tools.mlops_tools import (
     GrafanaDashboardLink, LokiLogSearch, PrometheusQuery,
@@ -73,34 +76,10 @@ AGENT_DIAGNOSIS_COUNT = Counter(
 
 AGENT_STATUS_GAUGE.set(1)
 
-DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
-GROQ_OPENAI_BASE_URL = "https://api.groq.com/openai/v1"
-
-
-def get_env_value(name: str) -> Optional[str]:
-    value = os.getenv(name)
-    if value is None or not value.strip():
-        return None
-    return value
-
-
 def init_llm() -> BaseChatModel:
-    openai_key = get_env_value("OPENAI_API_KEY")
-    groq_key = get_env_value("GROQ_API_KEY")
-    openai_model = get_env_value("OPENAI_MODEL_NAME")
-
-    if openai_key and openai_model:
-        api_key = openai_key
-        model_name = openai_model
-        base_url = get_env_value("LLM_API_BASE") or get_env_value("OPENAI_API_BASE") or DEFAULT_OPENAI_BASE_URL
-    elif groq_key:
-        api_key = groq_key
-        model_name = get_env_value("GROQ_MODEL_NAME") or "openai/gpt-oss-120b"
-        base_url = get_env_value("LLM_API_BASE") or get_env_value("OPENAI_API_BASE") or GROQ_OPENAI_BASE_URL
-    else:
-        api_key = openai_key
-        model_name = openai_model or "gpt-4o-mini"
-        base_url = get_env_value("LLM_API_BASE") or get_env_value("OPENAI_API_BASE") or DEFAULT_OPENAI_BASE_URL
+    # Groq: GROQ_API_KEY + GROQ_MODEL_NAME, endpoint LLM_API_BASE (default: Groq API).
+    # OpenAI: OPENAI_API_KEY + OPENAI_MODEL_NAME, endpoint LLM_API_BASE or OPENAI_API_BASE.
+    model_name, api_key, base_url = resolve_llm_settings()
 
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY or GROQ_API_KEY environment variable not set.")
@@ -306,8 +285,24 @@ def get_circuit_breaker_states():
         "degraded_mode": loki_breaker.is_blocking() or kb_breaker.is_blocking()
     }
 
+def final_message_of(final_state: Dict[str, Any]) -> str:
+    messages = final_state.get("messages", [])
+    if messages:
+        return messages[-1].content
+    return final_state.get("final_result") or "No final message from agent."
+
+
+def raise_rate_limited(endpoint: str, exc: LLMRateLimitError) -> None:
+    AGENT_ERROR_COUNT.labels(endpoint=endpoint, error_type="LLMRateLimitError").inc()
+    AGENT_DIAGNOSIS_COUNT.labels(outcome="rate_limited").inc()
+    logger.error("Diagnosis aborted, LLM rate limited: %s", exc)
+    raise HTTPException(status_code=429, detail=str(exc)) from exc
+
+
+# Sync endpoint (def, not async def): FastAPI runs it in its thread pool, so a long
+# diagnosis does not block /health, /circuit_breakers or other requests.
 @app.post("/diagnose_alert")
-async def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
+def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
     AGENT_RUN_COUNT.inc()
     alert_info, fingerprint = render_alert_info(alert_payload)
     logger.info("Received alert for diagnosis: %s", alert_info)
@@ -318,15 +313,24 @@ async def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
     start_time = time.time()
 
     try:
-        final_state = DIAGNOSTIC_AGENT.invoke(
-            build_initial_state(alert_info, thread_id, diagnosis_id), config=config
+        final_state, degraded_reason = invoke_diagnosis(
+            DIAGNOSTIC_AGENT, build_initial_state(alert_info, thread_id, diagnosis_id), config
         )
-        messages = final_state.get("messages", [])
-        final_message = (
-            messages[-1].content
-            if messages
-            else final_state.get("final_result", "No final message from agent.")
-        )
+        if degraded_reason:
+            # Step limit reached (AGENT_RECURSION_LIMIT): explicit degraded answer, not a 500.
+            AGENT_DIAGNOSIS_COUNT.labels(outcome="degraded").inc()
+            return {
+                "status": "degraded",
+                "reason": degraded_reason,
+                "agent_diagnosis": degraded_diagnosis_message(final_state),
+                "thread_id": thread_id,
+                "diagnosis_id": diagnosis_id,
+                "confidence_score": None,
+                "recommended_action": "unknown",
+                "tools_called": tools_called(final_state.get("messages", [])),
+                "current_agent_state": final_state,
+            }
+        final_message = final_message_of(final_state)
         outcome = classify_outcome(final_message, final_state.get("final_result"))
         AGENT_DIAGNOSIS_COUNT.labels(outcome=outcome).inc()
         logger.info("Agent diagnostic run completed. Outcome: %s", outcome)
@@ -337,8 +341,12 @@ async def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
             "diagnosis_id": diagnosis_id,  # For feedback tracking
             "confidence_score": final_state.get("confidence_score"),
             "recommended_action": final_state.get("recommended_action"),
+            "tools_called": tools_called(final_state.get("messages", [])),
             "current_agent_state": final_state,
         }
+
+    except LLMRateLimitError as exc:
+        raise_rate_limited("/diagnose_alert", exc)
 
     except Exception as exc:
         AGENT_ERROR_COUNT.labels(endpoint="/diagnose_alert", error_type=type(exc).__name__).inc()
@@ -350,7 +358,7 @@ async def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
         logger.info("Agent diagnostic run for alert took %.4f seconds.", duration)
 
 @app.post("/resume_diagnosis/{thread_id}")
-async def resume_diagnosis(thread_id: str):
+def resume_diagnosis(thread_id: str):
     """
     Resume a diagnosis session from a checkpoint.
     
@@ -364,22 +372,30 @@ async def resume_diagnosis(thread_id: str):
     
     try:
         # Invoke with None to resume from checkpoint
-        final_state = DIAGNOSTIC_AGENT.invoke(None, config=config)
-        messages = final_state.get("messages", [])
-        final_message = (
-            messages[-1].content
-            if messages
-            else final_state.get("final_result", "No final message from agent.")
-        )
+        final_state, degraded_reason = invoke_diagnosis(DIAGNOSTIC_AGENT, None, config)
+        if degraded_reason:
+            return {
+                "status": "degraded",
+                "reason": degraded_reason,
+                "thread_id": thread_id,
+                "agent_diagnosis": degraded_diagnosis_message(final_state),
+                "tools_called": tools_called(final_state.get("messages", [])),
+                "current_agent_state": final_state,
+            }
+        final_message = final_message_of(final_state)
         
         logger.info(f"Resumed diagnosis completed for thread_id: {thread_id}")
         return {
             "status": "success",
             "thread_id": thread_id,
             "agent_diagnosis": final_message,
+            "tools_called": tools_called(final_state.get("messages", [])),
             "current_agent_state": final_state,
         }
     
+    except LLMRateLimitError as exc:
+        raise_rate_limited("/resume_diagnosis", exc)
+
     except Exception as exc:
         logger.exception(f"Error resuming diagnosis for thread_id {thread_id}: {exc}")
         raise HTTPException(status_code=500, detail=f"Failed to resume diagnosis: {exc}") from exc
@@ -394,7 +410,7 @@ async def prometheus_metrics():
 
 # --- Chapter 4 - Part 3: Feedback Loop Endpoint ---
 @app.post("/feedback")
-async def record_feedback(feedback_data: Dict[str, Any] = Body(...)):
+def record_feedback(feedback_data: Dict[str, Any] = Body(...)):
     """
     Record feedback on a diagnosis to enable continuous learning.
 
@@ -411,7 +427,7 @@ async def record_feedback(feedback_data: Dict[str, Any] = Body(...)):
     logger.info(f"Received feedback for diagnosis: {feedback_data.get('diagnosis_id')}")
 
     try:
-        from knowledge_base import get_kb_client, DiagnosisFeedback, Incident
+        from knowledge_base import get_kb_client, DiagnosisFeedback, DuplicateFeedbackError, Incident
         from datetime import datetime
 
         diagnosis_id = feedback_data.get("diagnosis_id")
@@ -444,7 +460,12 @@ async def record_feedback(feedback_data: Dict[str, Any] = Body(...)):
 
         # Record in database (triggers automatic stats update via DB trigger)
         kb_client = get_kb_client()
-        feedback_id = kb_client.record_diagnosis_feedback(feedback)
+        try:
+            feedback_id = kb_client.record_diagnosis_feedback(feedback)
+        except DuplicateFeedbackError as exc:
+            # One feedback per diagnosis: a second one would count twice in alert_type_stats.
+            logger.warning(f"Duplicate feedback rejected: {exc}")
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         logger.info(f"Recorded feedback with id={feedback_id}")
 
         # If successful and user wants to add to KB, create incident entry
@@ -481,6 +502,9 @@ async def record_feedback(feedback_data: Dict[str, Any] = Body(...)):
                 "message": "Feedback recorded",
                 "feedback_id": feedback_id,
             }
+
+    except HTTPException:
+        raise
 
     except ValueError as e:
         logger.error(f"Validation error in feedback: {e}")

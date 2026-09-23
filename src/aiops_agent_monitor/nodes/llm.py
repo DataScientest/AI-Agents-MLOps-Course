@@ -3,17 +3,42 @@
 from __future__ import annotations
 
 import logging
-import time
-from typing import Iterable
+from typing import Iterable, Optional
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import BaseMessage, SystemMessage, AIMessage
+from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import BaseTool
 
+from guardrails import current_run_messages
 from state import AgentState
 
 logger = logging.getLogger(__name__)
+
+# HTTP statuses the LLM provider uses for quota problems:
+# 429 = rate limit (requests/tokens per minute or per day), 413 = request larger than the TPM limit.
+RATE_LIMIT_STATUS_CODES = (413, 429)
+
+
+class LLMRateLimitError(RuntimeError):
+    """The LLM provider refused the request because of a rate limit or quota."""
+
+    def __init__(self, message: str, provider_status: Optional[int] = None):
+        super().__init__(message)
+        self.provider_status = provider_status
+
+
+def rate_limit_status(exc: Exception) -> Optional[int]:
+    """Return 429/413 if exc is a provider rate-limit error, else None."""
+    status = getattr(exc, "status_code", None)
+    if status in RATE_LIMIT_STATUS_CODES:
+        return status
+    text = str(exc).lower()
+    if "rate_limit" in text or "rate limit" in text or "error code: 429" in text:
+        return 429
+    if "error code: 413" in text:
+        return 413
+    return None
 
 
 def llm_agent_node(
@@ -31,18 +56,23 @@ def llm_agent_node(
 
     def _node(state: AgentState) -> AgentState:
         logger.info("Node 'llm_agent_node': processing alert %s", state.get("alert_info"))
+        # Only the current diagnosis run goes to the LLM: the checkpointed thread
+        # keeps earlier runs of the same alert fingerprint, which would grow the prompt forever.
+        messages = current_run_messages(state["messages"])
         try:
-            result: BaseMessage = llm_chain.invoke({"messages": state["messages"]})
-            logger.info("LLM produced result: %s", result)
-            return {"messages": [result]}
+            result: BaseMessage = llm_chain.invoke({"messages": messages})
         except Exception as e:
-            # Handle rate limit errors (HTTP 429) gracefully
-            if "rate_limit" in str(e).lower() or "429" in str(e):
-                logger.error("Rate limit hit: %s", e)
-                error_msg = AIMessage(content="I'm sorry, but I've reached my daily limit for analyzing alerts. Please try again later when my quota resets.")
-                return {"messages": [error_msg]}
-            
+            status = rate_limit_status(e)
+            if status is not None:
+                # Do not turn a quota error into a fake diagnosis: stop the run and
+                # let the endpoint answer with an explicit "LLM rate limited" error.
+                logger.error("LLM rate limited (provider HTTP %s): %s", status, e)
+                raise LLMRateLimitError(
+                    f"LLM rate limited (provider HTTP {status}): {e}", provider_status=status
+                ) from e
             logger.error("Error in llm_agent_node: %s", e)
-            raise e
+            raise
+        logger.info("LLM produced result: %s", result)
+        return {"messages": [result]}
 
     return _node

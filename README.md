@@ -216,8 +216,13 @@ Create a `.env` file (or copy from `.env.example`):
 ```env
 # LLM Configuration
 GROQ_API_KEY=your_groq_api_key_here
-GROQ_MODEL_NAME=openai/gpt-oss-120b
-LLM_API_BASE=https://api.groq.com/openai/v1
+GROQ_MODEL_NAME=openai/gpt-oss-20b
+# Optional: OpenAI-compatible endpoint used with GROQ_API_KEY (empty = Groq)
+# LLM_API_BASE=https://api.groq.com/openai/v1
+
+# Agent guardrails (optional)
+AGENT_RECURSION_LIMIT=12      # max graph steps per diagnosis
+TOOL_OUTPUT_MAX_CHARS=2000    # max characters of each tool result sent to the LLM
 
 # For OpenAI instead, set:
 # OPENAI_API_KEY=your_openai_api_key_here

@@ -1,7 +1,7 @@
-"""Chapitre 6 : l'Agent Core appelle l'outil Prometheus via MCP (modèle factice).
+"""Chapter 6: the Agent Core calls the Prometheus tool through MCP (fake model).
 
-- test hors-ligne : le client MCP est routé en mémoire vers le vrai handle_mcp_request ;
-- test `stack` : même appel contre la stack démarrée (make all), lancer avec -m stack.
+- offline test: the MCP client is routed in memory to the real handle_mcp_request;
+- `stack` test: same call against the running stack (make all), run with -m stack.
 """
 import os
 import sys

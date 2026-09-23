@@ -12,7 +12,7 @@ links:
 	@echo "API Gateway (Entrypoint): http://localhost:8000"
 	@echo "Agent Core             : http://localhost:8005"
 	@echo "Prometheus             : http://localhost:9090"
-	@echo "Grafana                : http://localhost:3000"
+	@echo "Grafana                : http://localhost:3001"
 	@echo "Loki                   : http://localhost:3100"
 	@echo "----------------------"
 
@@ -21,7 +21,7 @@ api:
 
 test-api:
 	curl -X 'POST' \
-		'http://localhost:8080/predict' \
+		'http://localhost:8083/predict' \
 		-H 'accept: application/json' \
 		-H 'Content-Type: application/json' \
 		-d '{"text": "What a spectacular shot from Steph Curry!"}'
@@ -49,3 +49,23 @@ test-offline:
 	cd tests/offline && uv run --no-project --python 3.12 \
 		--with-requirements ../../src/aiops_agent_monitor/requirements.txt \
 		--with pytest==9.1.1 pytest -v
+
+# Chapter 7 test suites: pinned test dependencies from tests/requirements.txt (no install on the host).
+# Without uv: python3 -m venv .venv-tests && . .venv-tests/bin/activate && pip install -r tests/requirements.txt
+PYTEST := uv run --no-project --python 3.12 --with-requirements tests/requirements.txt pytest
+
+test-unit:
+	$(PYTEST) tests/unit/ -v --cov=src --cov-report=term-missing
+
+# The following suites need the stack running (make all)
+test-integration:
+	$(PYTEST) tests/integration/ -v
+
+test-e2e:
+	$(PYTEST) tests/e2e/ -v
+
+test-chaos:
+	$(PYTEST) tests/chaos/ -v -s
+
+test-sla:
+	$(PYTEST) tests/sla/ -v

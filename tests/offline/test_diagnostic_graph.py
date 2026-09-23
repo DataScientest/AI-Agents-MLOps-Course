@@ -1,6 +1,6 @@
-"""Tests hors-ligne du graphe de diagnostic (Agent Core) : modèle factice, pas de clé API ni de Postgres.
+"""Offline tests of the diagnostic graph (Agent Core): fake model, no API key or Postgres.
 
-Lancer : make test-offline
+Run: make test-offline
 """
 import os
 
@@ -70,7 +70,7 @@ def test_tool_loop_stops_when_llm_stops_calling_tools(fake_model):
 
 
 def test_checkpointer_persists_between_two_calls(fake_model):
-    """Même mécanique que /resume_diagnosis (chapitre 4) : invoke(None, config) relit le checkpoint."""
+    """Same mechanism as /resume_diagnosis (chapter 4): invoke(None, config) reloads the checkpoint."""
     llm = fake_model(AIMessage(content="r1"), AIMessage(content="Diagnostic final"))
     agent = build_diagnostic_agent(llm, [PrometheusQuery], checkpointer=InMemorySaver())
     config = {"configurable": {"thread_id": "alert_diagnosis_resume-test-001"}}
@@ -83,7 +83,7 @@ def test_checkpointer_persists_between_two_calls(fake_model):
 
 
 def test_interrupt_resumed_with_command():
-    """Validation humaine avant action : interrupt() puis Command(resume=...)."""
+    """Human approval before action: interrupt() then Command(resume=...)."""
     def approve(state: AgentState):
         decision = interrupt({"proposed_action": state["proposed_action"]})
         return {"human_feedback": decision}
@@ -105,8 +105,8 @@ def test_live_groq_model_answers():
     from langchain_openai import ChatOpenAI
 
     llm = ChatOpenAI(
-        model=os.getenv("GROQ_MODEL_NAME", "openai/gpt-oss-120b"),
+        model=os.getenv("GROQ_MODEL_NAME", "openai/gpt-oss-20b"),
         api_key=os.environ["GROQ_API_KEY"],
-        base_url=os.getenv("LLM_API_BASE", "https://api.groq.com/openai/v1"),
+        base_url=os.getenv("LLM_API_BASE") or "https://api.groq.com/openai/v1",
     )
     assert llm.invoke("Reply with the single word: pong").content

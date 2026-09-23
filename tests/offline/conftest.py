@@ -1,8 +1,8 @@
-"""Fixtures partagées : modèles factices, aucune clé API requise."""
+"""Shared fixtures: fake models, no API key required."""
 import os
 from typing import Any
 
-# Chapitres 5-6 : les URLs des services outils ne sont définies qu'en mode microservices (cf. docker-compose.yml).
+# Chapters 5-6: tool service URLs are only defined in microservices mode (see docker-compose.yml).
 os.environ.setdefault("DEPLOYMENT_MODE", "microservices")
 
 import pytest
@@ -11,7 +11,7 @@ from langchain_core.messages import AIMessage
 
 
 class ToolCallingFakeModel(GenericFakeChatModel):
-    """GenericFakeChatModel qui accepte bind_tools (appelé par create_agent)."""
+    """GenericFakeChatModel that accepts bind_tools (called by create_agent)."""
 
     def bind_tools(self, tools: Any, **kwargs: Any) -> "ToolCallingFakeModel":
         return self
