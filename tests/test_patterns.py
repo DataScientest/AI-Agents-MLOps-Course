@@ -140,7 +140,9 @@ def test_setup_llm_reads_model_from_env(monkeypatch):
 
 
 @pytest.mark.live
-def test_live_conditional_pattern_runs():
+def test_live_linear_pattern_calls_llm():
     import src.main as main_module
 
-    main_module.run_conditional_pattern(main_module.setup_llm())
+    agent = create_linear_report_agent(main_module.setup_llm(), [])
+    result = agent.invoke(full_state(messages=[HumanMessage(content="Generate a CPU health report.")]))
+    assert result["messages"][-1].content.strip()

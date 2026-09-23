@@ -16,24 +16,24 @@ help:
 # Run all patterns
 demo:
 	@echo "Running all LangGraph agent patterns..."
-	python3 -m src.main
+	uv run python -m src.main
 
 # Run individual patterns
 demo-linear:
 	@echo "Running linear workflow pattern..."
-	python3 -m src.main --pattern linear
+	uv run python -m src.main --pattern linear
 
 demo-conditional:
 	@echo "Running conditional branching pattern..."
-	python3 -m src.main --pattern conditional
+	uv run python -m src.main --pattern conditional
 
 demo-loop:
 	@echo "Running loop pattern..."
-	python3 -m src.main --pattern loop
+	uv run python -m src.main --pattern loop
 
 demo-human:
 	@echo "Running human-in-the-loop pattern..."
-	python3 -m src.main --pattern human
+	uv run python -m src.main --pattern human
 
 # Cleanup
 clean:
