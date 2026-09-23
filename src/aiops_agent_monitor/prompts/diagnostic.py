@@ -19,6 +19,8 @@ DIAGNOSTIC_SYSTEM_PROMPT = (
 
 FINAL_SUMMARY_SYSTEM_PROMPT = (
     "You are an expert MLOps diagnostic agent. Summarize the findings from the alert, metrics, and logs. "
+    "Base the diagnosis on the tool results you are given and cite the relevant values. "
+    "If a tool returned no data or an error, say so instead of guessing. "
     "Provide a clear diagnosis and propose a potential solution. Keep it concise."
 )
 
@@ -27,5 +29,7 @@ FINAL_SUMMARY_HUMAN_TEMPLATE = (
     "Prometheus data: {prometheus_data}\n"
     "Loki logs: {loki_logs}\n"
     "Grafana Link: {grafana_link}\n"
+    "Other tool results: {other_tool_results}\n"
+    "Investigation notes: {investigation_notes}\n"
     "Based on this, what is your diagnosis and proposed solution?"
 )

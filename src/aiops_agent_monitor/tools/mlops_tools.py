@@ -200,7 +200,7 @@ def GrafanaDashboardLink(dashboard_uid: str, time_range_minutes: int, service_fi
     Useful for providing a human operator with a visual context of the issue.
     The input arguments are: 'dashboard_uid' (str), 'time_range_minutes' (int),
     and optionally 'service_filter' (str).
-    Example input: {'dashboard_uid': 'news_classifier_health', 'time_range_minutes': 60, 'service_filter': 'news-classifier-api'}.
+    Example input: {'dashboard_uid': '364e23d4-9655-4ae9-ac6a-baf04e0e1b6d', 'time_range_minutes': 60, 'service_filter': 'news-classifier-api'}.
     """
     # Get URL at runtime to support environment variable overrides
     grafana_url = os.getenv("GRAFANA_URL", GRAFANA_URL)

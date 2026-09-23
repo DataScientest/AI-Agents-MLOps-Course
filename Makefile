@@ -8,22 +8,22 @@ stop:
 	docker compose down
 
 links:
-	@echo "API : http://localhost:8080"
-	@echo "Prometheus : http://localhost:9090"
-	@echo "Grafana : http://localhost:3000"
+	@echo "API : http://localhost:8081"
+	@echo "Prometheus : http://localhost:9091"
+	@echo "Grafana : http://localhost:3001"
 
 api:
 	docker compose up -d --build api
 
 test-api:
 	curl -X 'POST' \
-		'http://localhost:8080/predict' \
+		'http://localhost:8081/predict' \
 		-H 'accept: application/json' \
 		-H 'Content-Type: application/json' \
 		-d '{"text": "What a spectacular shot from Steph Curry!"}'
 
 evaluation:
-	dockercompose up -d --build evaluation
+	docker compose up -d --build evaluation
 
 trigger-alert-critical:
 	@echo "Triggering a CRITICAL alert to the AIOps Monitor Agent Service..."
