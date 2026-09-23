@@ -1,5 +1,6 @@
 """Tests de l'agent Calculatrice (chapitre 1) avec un modèle factice."""
 import os
+import re
 
 import pytest
 from langchain.agents import create_agent
@@ -161,4 +162,5 @@ def test_live_agent_uses_calculator():
         {"messages": [HumanMessage(content="Calcule (123 * 456) + 789")]}
     )
     assert any(isinstance(m, ToolMessage) for m in result["messages"])
-    assert "56877" in result["messages"][-1].content.replace(" ", "").replace(",", "")
+    digits = re.sub(r"\D", "", result["messages"][-1].content)  # "56 877" (U+202F), "56,877"...
+    assert "56877" in digits

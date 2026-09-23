@@ -3,7 +3,7 @@ all:
 	uv run python -m src.main
 
 run:
-	python3 -m src.main
+	uv run python -m src.main
 
 test:
 	uv run pytest
