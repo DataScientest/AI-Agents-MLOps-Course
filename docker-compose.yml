@@ -27,9 +27,11 @@ services:
       - AGENT_RECURSION_LIMIT=${AGENT_RECURSION_LIMIT:-12}
       - TOOL_OUTPUT_MAX_CHARS=${TOOL_OUTPUT_MAX_CHARS:-2000}
       - OPENAI_API_BASE=${OPENAI_API_BASE:-https://api.openai.com/v1}
-      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-true}
+      # LangSmith tracing is off unless .env sets LANGCHAIN_TRACING_V2=true and LANGCHAIN_API_KEY
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
       - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
-      - LANGCHAIN_PROJECT=AIOps-Agent-Core
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-AIOps-Agent-Core}
+      - LANGCHAIN_ENDPOINT=${LANGCHAIN_ENDPOINT:-https://api.smith.langchain.com}
       - POSTGRES_DB_URI=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       - DEPLOYMENT_MODE=microservices
       - PROMETHEUS_TOOL_SERVICE_URL=http://prometheus-tool-service:8001

@@ -69,6 +69,12 @@ Ils sont nécessaires pour tenir dans l'offre gratuite de Groq (8 000 tokens/min
   - Cibles `make test-unit`, `test-integration`, `test-e2e`, `test-chaos` et `test-sla`, avec `tests/requirements.txt`.
   - Les tests e2e et SLA exigent maintenant `status == "success"` et au moins un outil appelé.
 - Nettoyage : `requirements.txt` obsolètes supprimés (ch1, ch2), `__pycache__` retirés de l'index, message du hook de nettoyage clarifié.
+- 2e test apprenant :
+  - Loki tourne en root sur toutes les branches, pour qu'un volume écrit par un autre chapitre soit relisible.
+  - `make load-sample-data` (`--force-recreate`) fiabilise le chargeur de données après `make stop`.
+  - Le traçage LangSmith n'est activé que sur demande (`LANGCHAIN_TRACING_V2`, défaut `false`).
+  - Le test de chaos suit l'état du disjoncteur pendant chaque diagnostic.
+  - ch2 : les `.pyc` de test ne sont plus suivis par git, et la boucle ne fait plus d'appel LLM inutile à la dernière tentative.
 
 ## Tests
 
@@ -76,9 +82,9 @@ Ils sont nécessaires pour tenir dans l'offre gratuite de Groq (8 000 tokens/min
 |---|---|---|
 | chapter-1 | `uv run pytest` / `-m live` | 7 passed / 1 passed (Groq) |
 | chapter-2 | `uv run pytest` / `-m live` | 15 passed / 1 passed |
-| chapter-3 | `uv run pytest` | 14 passed |
-| chapter-4, chapter-5 | `make test-offline` | 14 passed chacun |
-| chapter-6/7 | `make test-offline` ; `make test-unit` | 18 passed ; 10 passed |
+| chapter-3 | `uv run pytest` | 15 passed |
+| chapter-4, chapter-5 | `make test-offline` | 15 passed chacun |
+| chapter-6/7 | `make test-offline` ; `make test-unit` | 19 passed ; 10 passed |
 | chapter-6/7 (stack) | curl MCP des exercices 1 et 2, `pytest -m stack`, integration, e2e, SLA, chaos `test_circuit_breaker_prometheus_failure` (LLM factice compatible OpenAI) | conformes / passed |
 | ch3, ch4, ch6 (stack, vrai Groq `gpt-oss-20b`) | un diagnostic réel chacun | aboutis, outils appelés, synthèse fondée sur les données |
 | ch4 (stack) | agent stable avec Postgres, `/resume_diagnosis` | 0 redémarrage, checkpoints lus |
@@ -89,5 +95,5 @@ Les tests hors-ligne utilisent un modèle factice (`GenericFakeChatModel` dériv
 
 - `confidence_score` et `recommended_action` ne sont calculés sur aucune branche : ils valent toujours `null` et `"unknown"`. Le texte du cours le dit désormais. Les seuils `CONFIDENCE_THRESHOLD_*` de `.env.example` ne sont pas lus : le code utilise 0,90 / 0,70 en dur.
 - ch7 : avec le quota gratuit et une limite de 12, une investigation longue finit en `degraded` et fait échouer e2e/SLA, qui exigent `success`. Le cours conseille `AGENT_RECURSION_LIMIT=20` et une pause entre les runs pour ces suites.
-- `gpt-oss-20b` cherche parfois des métriques `container_*` absentes de la stack. Piste non appliquée : lister les métriques disponibles dans le prompt système.
+- Le prompt système de diagnostic (ch3-7) liste désormais les métriques et labels réels de la stack (jobs Prometheus, labels Loki), avec des requêtes valides, parce que `gpt-oss-20b` interrogeait des métriques `container_*` absentes et épuisait ses étapes (16 diagnostics sur 17 en `degraded` au 2e test apprenant). Son effet sur le taux de `success` reste à mesurer avec un vrai quota Groq.
 - Les tests `-m live` et les diagnostics réels dépendent du quota Groq du jour (200 000 tokens par modèle et par organisation).
