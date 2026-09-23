@@ -4,8 +4,14 @@ all:
 	docker compose up --build -d
 	@$(MAKE) links
 
+# --profile tools: also removes the one-shot data-loader container
 stop: 
-	docker compose down
+	docker compose --profile tools down
+
+# Load the sample incidents into the knowledge base (RAG). --force-recreate rebuilds the
+# one-shot container, so the command also works after make stop or docker compose down -v.
+load-sample-data:
+	docker compose --profile tools up --build --force-recreate data-loader
 
 links:
 	@echo "API : http://localhost:8081"
