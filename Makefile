@@ -4,27 +4,39 @@ all:
 	docker compose up --build -d
 	@$(MAKE) links
 
+# --profile tools: also removes the one-shot data-loader container
 stop: 
-	docker compose down
+	docker compose --profile tools down
+
+# Load the sample incidents into the knowledge base (RAG). --force-recreate rebuilds the
+# one-shot container, so the command also works after make stop or docker compose down -v.
+load-sample-data:
+	docker compose --profile tools up --build --force-recreate data-loader
 
 links:
-	@echo "API : http://localhost:8080"
-	@echo "Prometheus : http://localhost:9090"
-	@echo "Grafana : http://localhost:3000"
+	@echo "API : http://localhost:8081"
+	@echo "Prometheus : http://localhost:9091"
+	@echo "Grafana : http://localhost:3001"
 
 api:
 	docker compose up -d --build api
 
 test-api:
 	curl -X 'POST' \
-		'http://localhost:8080/predict' \
+		'http://localhost:8081/predict' \
 		-H 'accept: application/json' \
 		-H 'Content-Type: application/json' \
 		-d '{"text": "What a spectacular shot from Steph Curry!"}'
 
 evaluation:
-	dockercompose up -d --build evaluation
+	docker compose up -d --build evaluation
 
 trigger-alert-critical:
 	@echo "Triggering a CRITICAL alert to the AIOps Monitor Agent Service..."
 	curl -X POST -H "Content-Type: application/json" -d '{"alerts": [{"labels": {"alertname": "HighCPULoad", "service": "", "severity": "critical"}, "annotations": {"summary": "CPU load is unusually high.", "description": "Observed sustained high CPU utilization, exceeding 90% for 10 minutes."}}]}' http://localhost:8005/diagnose_alert            
+
+# Offline tests (fake LLM, no API key, no Docker): same pinned deps as the Agent Core image
+test-offline:
+	cd tests/offline && uv run --no-project --python 3.12 \
+		--with-requirements ../../src/aiops_agent_monitor/requirements.txt \
+		--with pytest==9.1.1 pytest -v

@@ -86,8 +86,13 @@ Create a `.env` file at the root of the project. For the default Groq setup, set
 
 ```bash
 GROQ_API_KEY="your-groq-api-key-here"
-GROQ_MODEL_NAME="meta-llama/llama-4-scout-17b-16e-instruct"
-LLM_API_BASE="https://api.groq.com/openai/v1"
+GROQ_MODEL_NAME="openai/gpt-oss-20b"
+# Optional: OpenAI-compatible endpoint used with GROQ_API_KEY (empty = Groq)
+# LLM_API_BASE="https://api.groq.com/openai/v1"
+
+# Agent guardrails (optional)
+AGENT_RECURSION_LIMIT="12"      # max graph steps per diagnosis
+TOOL_OUTPUT_MAX_CHARS="2000"    # max characters of each tool result sent to the LLM
 ```
 
 For OpenAI instead, set `OPENAI_API_KEY`, `OPENAI_MODEL_NAME`, and `LLM_API_BASE="https://api.openai.com/v1"`.
