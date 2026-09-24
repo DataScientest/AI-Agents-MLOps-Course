@@ -10,7 +10,7 @@ from config import (
     RAG_TOP_K,
     RAG_SIMILARITY_THRESHOLD,
 )
-from .models import Incident, SimilarIncident, DiagnosisFeedback, AlertTypeStats
+from .models import Incident, SimilarIncident, DiagnosisFeedback, AlertTypeStats, DuplicateFeedbackError
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class HTTPKnowledgeBaseClient(KnowledgeBaseClient):
 
     def add_incident(self, incident: Incident) -> int:
         try:
-            resp = requests.post(f"{self.service_url}/incidents", json=incident.dict(), timeout=30)
+            resp = requests.post(f"{self.service_url}/incidents", json=incident.model_dump(mode="json"), timeout=30)
             resp.raise_for_status()
             return resp.json().get("id")
         except Exception as e:
@@ -72,9 +72,13 @@ class HTTPKnowledgeBaseClient(KnowledgeBaseClient):
 
     def record_diagnosis_feedback(self, feedback: DiagnosisFeedback) -> int:
         try:
-            resp = requests.post(f"{self.service_url}/feedback", json=feedback.dict(), timeout=30)
+            resp = requests.post(f"{self.service_url}/feedback", json=feedback.model_dump(mode="json"), timeout=30)
+            if resp.status_code == 409:
+                raise DuplicateFeedbackError(resp.json().get("detail", "Feedback already recorded"))
             resp.raise_for_status()
             return resp.json().get("id")
+        except DuplicateFeedbackError:
+            raise
         except Exception as e:
             logger.error(f"KB HTTP feedback record failed: {e}")
             raise
