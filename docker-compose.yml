@@ -18,10 +18,14 @@ services:
       - .env
     environment:
       - GROQ_API_KEY=${GROQ_API_KEY}
-      - GROQ_MODEL_NAME=${GROQ_MODEL_NAME}
-      - LANGCHAIN_TRACING_V2="true"
-      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
-      - LANGCHAIN_PROJECT="AIOps Monitor Agent Internal Runs"
+      - GROQ_MODEL_NAME=${GROQ_MODEL_NAME:-openai/gpt-oss-20b}
+      - LLM_API_BASE=${LLM_API_BASE:-}
+      - AGENT_RECURSION_LIMIT=${AGENT_RECURSION_LIMIT:-12}
+      - TOOL_OUTPUT_MAX_CHARS=${TOOL_OUTPUT_MAX_CHARS:-2000}
+      # LangSmith tracing is off unless .env sets LANGCHAIN_TRACING_V2=true and LANGCHAIN_API_KEY
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-AIOps Monitor Agent Internal Runs}
     depends_on:
       - prometheus
       - loki
@@ -80,6 +84,9 @@ services:
   loki:
     image: grafana/loki:latest
     container_name: loki
+    # Same user as chapters 4-7: the loki_data volume is shared between chapters
+    # (same Compose project), and root can read WAL files written by any Loki user.
+    user: root
     ports:
       - "3100:3100"
     volumes:
