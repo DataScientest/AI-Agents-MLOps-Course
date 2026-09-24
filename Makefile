@@ -1,4 +1,4 @@
-.PHONY: help demo demo-linear demo-conditional demo-loop demo-human clean
+.PHONY: help demo demo-linear demo-conditional demo-loop demo-human clean test
 
 # Default target
 help:
@@ -16,24 +16,24 @@ help:
 # Run all patterns
 demo:
 	@echo "Running all LangGraph agent patterns..."
-	python3 -m src.main
+	uv run python -m src.main
 
 # Run individual patterns
 demo-linear:
 	@echo "Running linear workflow pattern..."
-	python3 -m src.main --pattern linear
+	uv run python -m src.main --pattern linear
 
 demo-conditional:
 	@echo "Running conditional branching pattern..."
-	python3 -m src.main --pattern conditional
+	uv run python -m src.main --pattern conditional
 
 demo-loop:
 	@echo "Running loop pattern..."
-	python3 -m src.main --pattern loop
+	uv run python -m src.main --pattern loop
 
 demo-human:
 	@echo "Running human-in-the-loop pattern..."
-	python3 -m src.main --pattern human
+	uv run python -m src.main --pattern human
 
 # Cleanup
 clean:
@@ -42,9 +42,9 @@ clean:
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	@echo "Done!"
 
-#test:
-#	@echo "Running tests..."
-#	pytest -v tests
+test:
+	@echo "Running tests..."
+	uv run pytest -v
 
 # Alias for backwards compatibility
 all: demo

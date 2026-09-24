@@ -1,6 +1,6 @@
 import logging
 
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -9,7 +9,7 @@ from src.state import AgentState
 logger = logging.getLogger(__name__)
 
 
-def build_generate_report_node(llm_client: ChatGroq):
+def build_generate_report_node(llm_client: BaseChatModel):
     def generate_report_node(state: AgentState):
         logger.info("Node 'generate_report' : Generating health report.")
         cpu_metrics_str = state["system_metrics"].get("CPU", "unavailable")

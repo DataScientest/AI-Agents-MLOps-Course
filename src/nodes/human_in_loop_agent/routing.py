@@ -5,6 +5,17 @@ from src.state import AgentState
 logger = logging.getLogger(__name__)
 
 
+def route_entry(state: AgentState) -> str:
+    """Entry routing: resume at the decision point when an action was already proposed."""
+    if state.get("proposed_action"):
+        logger.info(
+            "Routing function 'route_entry' : action already proposed. Resuming at 'feedback_decision_node'."
+        )
+        return "feedback_decision_node"
+    logger.info("Routing function 'route_entry' : no proposed action yet. Routing to 'propose_action'.")
+    return "propose_action"
+
+
 def route_on_feedback(state: AgentState) -> str:
     logger.info(
         "Routing function 'route_on_feedback' : human_feedback=%s",
