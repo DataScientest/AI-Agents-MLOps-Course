@@ -66,17 +66,17 @@ def PrometheusQuery(query: str, time_range_minutes: int, step_seconds: int, targ
                 formatted_results.append(f"{{ {metric_labels} }} values: {', '.join(values)}")
             
             logger.info(f"Prometheus query successful. Results: {len(data['data']['result'])} series.")
-            return "Prometheus query results:\n" + "\n".join(formatted_results)
+            return f"PromQL query: {query}\nPrometheus query results:\n" + "\n".join(formatted_results)
         else:
             logger.warning("Prometheus query successful but no data found.")
-            return "Prometheus query: No data found for the given query and time range."
+            return f"PromQL query: {query}\nPrometheus query: No data found for the given query and time range."
     
     except requests.exceptions.RequestException as e:
         logger.error(f"Error querying Prometheus at {prom_url}: {e}")
-        return f"Failed to query Prometheus: {e}"
+        return f"PromQL query: {query}\nFailed to query Prometheus: {e}"
     except Exception as e:
         logger.error(f"An unexpected error occurred during PrometheusQuery: {e}", exc_info=True)
-        return f"An unexpected error occurred: {e}"
+        return f"PromQL query: {query}\nAn unexpected error occurred: {e}"
 
 # --- Loki Log Search Tool ---
 class LokiLogSearchInput(BaseModel):

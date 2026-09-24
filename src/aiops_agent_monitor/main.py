@@ -17,6 +17,7 @@ from prometheus_client import Counter, Gauge, Histogram, generate_latest
 from agents import build_diagnostic_agent
 from guardrails import degraded_diagnosis_message, invoke_diagnosis, tools_called
 from llm_settings import resolve_llm_settings
+from nodes.llm import LLMRateLimitError
 from state import AgentState
 from tools.mlops_tools import GrafanaDashboardLink, LokiLogSearch, PrometheusQuery
 
@@ -164,6 +165,13 @@ async def read_root():
     return {"message": "AIOps Diagnostic Agent Service is running and ready to diagnose alerts!"}
 
 
+def raise_rate_limited(endpoint: str, exc: LLMRateLimitError) -> None:
+    AGENT_ERROR_COUNT.labels(endpoint=endpoint, error_type="LLMRateLimitError").inc()
+    AGENT_DIAGNOSIS_COUNT.labels(outcome="rate_limited").inc()
+    logger.error("Diagnosis aborted, LLM rate limited: %s", exc)
+    raise HTTPException(status_code=429, detail=str(exc)) from exc
+
+
 # Sync endpoint (def, not async def): FastAPI runs it in its thread pool, so a long
 # diagnosis does not block the other requests (/metrics...).
 @app.post("/diagnose_alert")
@@ -198,6 +206,9 @@ def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
             "agent_diagnosis": final_message,
             "tools_called": tools_called(messages),
         }
+
+    except LLMRateLimitError as exc:
+        raise_rate_limited("/diagnose_alert", exc)
 
     except Exception as exc:
         AGENT_ERROR_COUNT.labels(endpoint="/diagnose_alert", error_type=type(exc).__name__).inc()
