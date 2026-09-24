@@ -21,9 +21,21 @@ AVAILABLE_DATA_PROMPT = (
     "rate(prediction_confidence_score_count{job=\"news_classifier_api\"}[5m]), model_accuracy_score\n"
     "- Loki: every stream has job=\"docker\" and service=\"<Compose service>\", e.g. "
     "{job=\"docker\", service=\"news-classifier-api\"} |~ \"(?i)(error|exception)\"\n"
-    "**BUDGET:** two or three tool calls are enough. If a query returns no data, do not retry "
-    "variants of it: note it and write your diagnosis."
+    "**BUDGET: at most 3 tool calls, then write your diagnosis without calling any tool.** "
+    "Plan by alert type:\n"
+    "- CPU or load: the host CPU query above, then node_load1 if needed.\n"
+    "- Memory: the host memory query above, then LokiLogSearch for OOM or errors if needed.\n"
+    "- Disk: the host disk query above.\n"
+    "- HTTP errors or latency: LokiLogSearch for errors, then up{job=\"news_classifier_api\"}.\n"
+    "- Service down: up{job=\"news_classifier_api\"}, then LokiLogSearch for errors.\n"
+    "Call RAGKnowledgeSearch only if these results do not explain the alert. "
+    "Never repeat a query with another time range. If a query returns no data, note it. "
+    "GrafanaDashboardLink returns a link for your answer, not data: do not call it to diagnose."
 )
+
+# Added to the last LLM call before the step limit (see nodes/llm.py): a tool call
+# requested at that point would be skipped and the answer would be "degraded".
+LAST_STEP_INSTRUCTION = "This is your last step: do not call any tool, write your diagnosis now."
 
 DIAGNOSTIC_SYSTEM_PROMPT = (
     "You are an expert MLOps Diagnostic Agent. Your goal is to analyze alerts, "

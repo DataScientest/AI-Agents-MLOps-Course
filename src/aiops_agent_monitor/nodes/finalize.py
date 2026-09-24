@@ -10,6 +10,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate
 
 from guardrails import current_run_messages, truncate_tool_output
+from nodes.llm import LLMRateLimitError, rate_limit_status
 from state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -65,7 +66,16 @@ def finalize_diagnosis_node(
         logger.info("Node 'finalize_diagnosis': summarising alert %s", state.get("alert_info"))
         results = collect_tool_results(state)
         rendered_messages = prompt.format_messages(alert_info=state.get("alert_info", ""), **results)
-        final_response = llm.invoke(rendered_messages)
+        try:
+            final_response = llm.invoke(rendered_messages)
+        except Exception as e:
+            status = rate_limit_status(e)
+            if status is not None:
+                logger.error("LLM rate limited (provider HTTP %s): %s", status, e)
+                raise LLMRateLimitError(
+                    f"LLM rate limited (provider HTTP {status}): {e}", provider_status=status
+                ) from e
+            raise
         final_msg = final_response.content if hasattr(final_response, "content") else str(final_response)
         logger.info("Final diagnosis produced (usage: %s)", getattr(final_response, "usage_metadata", None))
         # The messages reducer appends: return only the new message, not the whole history.
