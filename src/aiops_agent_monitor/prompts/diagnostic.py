@@ -20,7 +20,7 @@ AVAILABLE_DATA_PROMPT = (
     "- News classifier API (no CPU or memory metric of its own): up{job=\"news_classifier_api\"}, "
     "rate(prediction_confidence_score_count{job=\"news_classifier_api\"}[5m]), model_accuracy_score\n"
     "- Loki: every stream has job=\"docker\" and service=\"<Compose service>\", e.g. "
-    "{job=\"docker\", service=\"news-classifier-api\"} |~ \"(?i)(error|exception)\"\n"
+    "{job=\"docker\", service=\"news-classifier-api\"} |~ \"(?i)(error|exception)\" (match several words with one |~ regex, never `or`)\n"
     "**BUDGET: at most 3 tool calls, then write your diagnosis without calling any tool.** "
     "Plan by alert type:\n"
     "- CPU or load: the host CPU query above, then node_load1 if needed.\n"
