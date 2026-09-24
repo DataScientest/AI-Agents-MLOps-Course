@@ -82,9 +82,9 @@ Ils sont nécessaires pour tenir dans l'offre gratuite de Groq (8 000 tokens/min
 |---|---|---|
 | chapter-1 | `uv run pytest` / `-m live` | 7 passed / 1 passed (Groq) |
 | chapter-2 | `uv run pytest` / `-m live` | 15 passed / 1 passed |
-| chapter-3 | `uv run pytest` | 15 passed |
-| chapter-4, chapter-5 | `make test-offline` | 15 passed chacun |
-| chapter-6/7 | `make test-offline` ; `make test-unit` | 19 passed ; 10 passed |
+| chapter-3 | `uv run pytest` | 21 passed (1 skipped : test HTTP 429 qui demande fastapi) |
+| chapter-4, chapter-5 | `make test-offline` | 21 passed chacun |
+| chapter-6/7 | `make test-offline` ; `make test-unit` | 24 passed ; 10 passed |
 | chapter-6/7 (stack) | curl MCP des exercices 1 et 2, `pytest -m stack`, integration, e2e, SLA, chaos `test_circuit_breaker_prometheus_failure` (LLM factice compatible OpenAI) | conformes / passed |
 | ch3, ch4, ch6 (stack, vrai Groq `gpt-oss-20b`) | un diagnostic réel chacun | aboutis, outils appelés, synthèse fondée sur les données |
 | ch4 (stack) | agent stable avec Postgres, `/resume_diagnosis` | 0 redémarrage, checkpoints lus |
@@ -95,5 +95,5 @@ Les tests hors-ligne utilisent un modèle factice (`GenericFakeChatModel` dériv
 
 - `confidence_score` et `recommended_action` ne sont calculés sur aucune branche : ils valent toujours `null` et `"unknown"`. Le texte du cours le dit désormais. Les seuils `CONFIDENCE_THRESHOLD_*` de `.env.example` ne sont pas lus : le code utilise 0,90 / 0,70 en dur.
 - ch7 : avec le quota gratuit et une limite de 12, une investigation longue finit en `degraded` et fait échouer e2e/SLA, qui exigent `success`. Le cours conseille `AGENT_RECURSION_LIMIT=20` et une pause entre les runs pour ces suites.
-- Le prompt système de diagnostic (ch3-7) liste désormais les métriques et labels réels de la stack (jobs Prometheus, labels Loki), avec des requêtes valides, parce que `gpt-oss-20b` interrogeait des métriques `container_*` absentes et épuisait ses étapes (16 diagnostics sur 17 en `degraded` au 2e test apprenant). Son effet sur le taux de `success` reste à mesurer avec un vrai quota Groq.
+- Le prompt système de diagnostic (ch3-7) liste désormais les métriques et labels réels de la stack (jobs Prometheus, labels Loki), avec des requêtes valides, parce que `gpt-oss-20b` interrogeait des métriques `container_*` absentes et épuisait ses étapes (16 diagnostics sur 17 en `degraded` au 2e test apprenant). Mesuré sur Groq : 0 requête invalide sur 41, et 50 % de `success` (contre 6 %). Les échecs venaient d'un 5e appel d'outil coupé par la limite. Ont suivi : un plan de 3 outils au plus par type d'alerte, une consigne « dernière étape : réponds sans outil », la requête PromQL en tête de chaque résultat Prometheus, et un HTTP 429 explicite sur ch3-5. Le nouveau taux de `success` reste à mesurer avec un vrai quota Groq.
 - Les tests `-m live` et les diagnostics réels dépendent du quota Groq du jour (200 000 tokens par modèle et par organisation).
