@@ -62,7 +62,8 @@ def test_agent_calls_prometheus_through_mcp(fake_model, monkeypatch):
     assert received and received[0][0] == "prometheus.query_range"
     assert received[0][1]["query"] == PROMQL
     tool_msgs = [m for m in result["messages"] if isinstance(m, ToolMessage)]
-    assert tool_msgs[0].content == "Prometheus result: cpu=0.93"
+    # The Agent Core puts the query on the first line of the result (HTTP and MCP alike).
+    assert tool_msgs[0].content == f"PromQL query: {PROMQL}\nPrometheus result: cpu=0.93"
 
 
 def test_mcp_client_lists_catalog_in_memory(monkeypatch):

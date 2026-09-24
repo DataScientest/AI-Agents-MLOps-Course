@@ -5,8 +5,10 @@
 - the final summary receives the actual tool results;
 - a reused thread (same fingerprint) sends only the new alert to the LLM;
 - LLM endpoint choice (LLM_API_BASE, never OPENAI_API_BASE for a Groq key);
-- a provider 429/413 error surfaces as an explicit error, not as a success.
-- the diagnostic system prompt lists the metrics and labels of this stack.
+- a provider 429/413 error (agent or summary call) surfaces as an explicit error, not as a success;
+- the diagnostic system prompt lists the metrics and labels of this stack;
+- the last LLM call before the step limit is told to answer without tools;
+- each Prometheus result starts with its PromQL query, even after truncation.
 """
 import itertools
 
@@ -22,6 +24,8 @@ from conftest import ToolCallingFakeModel, tool_call
 from guardrails import degraded_diagnosis_message, invoke_diagnosis, tools_called, truncate_tool_output
 from llm_settings import GROQ_OPENAI_BASE_URL, resolve_llm_settings
 from nodes.llm import LLMRateLimitError
+from prompts import LAST_STEP_INSTRUCTION
+from tools import mcp_client, mlops_tools
 from test_diagnostic_graph import alert_state
 
 LLM_INPUTS = []
@@ -36,11 +40,15 @@ class RecordingFakeModel(ToolCallingFakeModel):
 
 
 class RateLimitedFakeModel(ToolCallingFakeModel):
-    """Fake model whose provider always answers with an HTTP error."""
+    """Fake model whose provider answers with an HTTP error (after answers_before_error answers)."""
 
     status: int = 429
+    answers_before_error: int = 0
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        if self.answers_before_error > 0:
+            self.answers_before_error -= 1
+            return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
         request = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
         response = httpx.Response(self.status, request=request)
         if self.status == 429:
@@ -206,3 +214,75 @@ def test_rate_limit_is_an_explicit_error_not_a_success(status):
         agent.invoke(alert_state())
     assert excinfo.value.provider_status == status
     assert "LLM rate limited" in str(excinfo.value)
+
+
+def test_rate_limit_on_the_summary_call_is_an_explicit_error():
+    """The agent answers, then the provider refuses the final summary call."""
+    llm = RateLimitedFakeModel(messages=iter([AIMessage(content="CPU saturé")]), answers_before_error=1)
+    with pytest.raises(LLMRateLimitError) as excinfo:
+        build_diagnostic_agent(llm, [PrometheusQuery]).invoke(alert_state())
+    assert excinfo.value.provider_status == 429
+
+
+def test_last_step_asks_for_the_diagnosis_and_a_direct_answer_is_a_success(monkeypatch):
+    """Limit 12: the 5th LLM call (remaining_steps=3) is told to answer without tools."""
+    monkeypatch.setenv("AGENT_RECURSION_LIMIT", "12")
+    llm = recording_model(
+        *[tool_call("PrometheusQuery", {"query": f"q{i}"}, f"c{i}") for i in range(1, 5)],
+        AIMessage(content="Diagnostic direct : cpu=95%"),
+        AIMessage(content="Diagnostic final"),
+    )
+    state, reason = invoke_diagnosis(build_diagnostic_agent(llm, [PrometheusQuery]), alert_state())
+
+    agent_calls = LLM_INPUTS[:5]
+    assert all(LAST_STEP_INSTRUCTION not in all_text(call) for call in agent_calls[:4])
+    assert agent_calls[4][-1].content == LAST_STEP_INSTRUCTION
+    assert reason is None  # answered without a tool: "success", not "degraded"
+    assert state["final_result"] == "Diagnostic final"
+    assert tools_called(state["messages"]) == ["PrometheusQuery"] * 4
+    # The note goes to the LLM only: it is not stored in the graph state.
+    assert LAST_STEP_INSTRUCTION not in all_text(state["messages"])
+
+
+class _Resp:
+    def __init__(self, body):
+        self._body = body
+
+    def json(self):
+        return self._body
+
+    def raise_for_status(self):
+        pass
+
+
+@pytest.mark.parametrize("transport", ["http", "mcp"])
+def test_prometheus_result_starts_with_its_query_even_when_truncated(transport, monkeypatch):
+    promql = 'up{job="news_classifier_api"}'
+    service_result = "Prometheus query results:\n{  } values: " + ", ".join(["12.80"] * 500)
+    monkeypatch.setenv("TOOL_OUTPUT_MAX_CHARS", "200")
+    monkeypatch.setattr(mlops_tools, "PROMETHEUS_TRANSPORT", transport)
+    monkeypatch.setattr(mlops_tools.requests, "post", lambda *a, **k: _Resp({"result": service_result}))
+    monkeypatch.setattr(mcp_client, "call_tool", lambda *a, **k: service_result)
+    llm = recording_model(
+        tool_call("PrometheusQuery", {"query": promql}),
+        AIMessage(content="ok"),
+        AIMessage(content="Diagnostic final"),
+    )
+    result = build_diagnostic_agent(llm, [mlops_tools.PrometheusQuery]).invoke(alert_state())
+
+    tool_msg = next(m for m in result["messages"] if isinstance(m, ToolMessage))
+    assert tool_msg.content.startswith(f"PromQL query: {promql}\nPrometheus query results:\n")
+    assert "(TOOL_OUTPUT_MAX_CHARS=200)]" in tool_msg.content
+    assert f"Prometheus data: PromQL query: {promql}\n" in all_text(LLM_INPUTS[-1])
+
+
+def test_prometheus_error_also_names_its_query(monkeypatch):
+    def failing_post(*args, **kwargs):
+        raise ConnectionError("prometheus-tool unreachable")
+
+    monkeypatch.setattr(mlops_tools, "PROMETHEUS_TRANSPORT", "http")
+    monkeypatch.setattr(mlops_tools.requests, "post", failing_post)
+    monkeypatch.setattr(mlops_tools.prom_breaker, "failures", 0)
+    monkeypatch.setattr(mlops_tools.prom_breaker, "state", "CLOSED")
+    result = mlops_tools.PrometheusQuery.invoke({"query": "node_load1"})
+    assert result == "PromQL query: node_load1\nError: prometheus-tool unreachable"

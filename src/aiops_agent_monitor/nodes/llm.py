@@ -6,11 +6,13 @@ import logging
 from typing import Iterable, Optional
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import BaseMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import BaseTool
 
 from guardrails import current_run_messages
+from nodes.routing import FINALIZE_RESERVED_STEPS
+from prompts import LAST_STEP_INSTRUCTION
 from state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -59,6 +61,13 @@ def llm_agent_node(
         # Only the current diagnosis run goes to the LLM: the checkpointed thread
         # keeps earlier runs of the same alert fingerprint, which would grow the prompt forever.
         messages = current_run_messages(state["messages"])
+        remaining = state.get("remaining_steps")
+        if remaining is not None and remaining <= FINALIZE_RESERVED_STEPS:
+            # Last LLM call before the step limit: the router would skip a tool call
+            # (degraded answer), so ask the model for its diagnosis now. The note is
+            # sent to the LLM only, not stored in the graph state.
+            logger.info("Last step (remaining_steps=%s): asking the LLM to answer without tools.", remaining)
+            messages = messages + [HumanMessage(content=LAST_STEP_INSTRUCTION)]
         try:
             result: BaseMessage = llm_chain.invoke({"messages": messages})
         except Exception as e:
