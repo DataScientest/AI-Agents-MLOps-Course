@@ -39,8 +39,8 @@ def collect_tool_results(state: AgentState) -> Dict[str, str]:
         elif isinstance(message, AIMessage) and not message.tool_calls and message.content:
             notes = str(message.content)
     return {
-        "prometheus_data": "\n\n".join(grouped["prometheus_data"]) or state.get("prometheus_data") or "No data.",
-        "loki_logs": "\n\n".join(grouped["loki_logs"]) or state.get("loki_logs") or "No logs.",
+        "prometheus_data": "\n\n".join(grouped["prometheus_data"]) or state.get("prometheus_data") or "Not queried.",
+        "loki_logs": "\n\n".join(grouped["loki_logs"]) or state.get("loki_logs") or "Not queried.",
         "grafana_link": "\n".join(grouped["grafana_link"]) or state.get("grafana_link") or "No link generated.",
         "other_tool_results": "\n\n".join(other) or "None.",
         "investigation_notes": truncate_tool_output(notes) or "None.",
