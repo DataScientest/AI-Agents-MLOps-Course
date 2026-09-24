@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import Tool
 from langchain_core.messages import HumanMessage
-from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent
 
 from tools.calculator import Calculator, CalculatorInput
 
@@ -27,10 +27,10 @@ def main():
     # --- 2. Initialisation du client Groq LLM via OpenAI-compatible endpoint ---
     try:
         llm = ChatOpenAI(
-            model="llama-3.1-8b-instant",
+            model=os.getenv("GROQ_MODEL_NAME", "openai/gpt-oss-20b"),
             temperature=0.7,
             api_key=groq_api_key,
-            base_url="https://api.groq.com/openai/v1"
+            base_url=os.getenv("LLM_API_BASE", "https://api.groq.com/openai/v1")
         )
         logger.info(f"Client Groq LLM '{llm.model_name}' initialisé avec succès.")
     except Exception as e:
@@ -65,9 +65,9 @@ def main():
         return
 
     # --- 5. Création de l'agent ReAct (LangGraph) ---
-    # create_react_agent retourne un graphe LangGraph compilé qui implémente
+    # create_agent retourne un graphe LangGraph compilé qui implémente
     # la boucle ReAct : Raisonner → Agir (appel d'outil) → Observer → Raisonner...
-    agent = create_react_agent(llm, tools, prompt=system_prompt)
+    agent = create_agent(llm, tools, system_prompt=system_prompt)
     logger.info("Agent ReAct LangGraph créé avec le LLM et l'outil Calculatrice.")
 
     # --- 6. Exécution de l'agent avec des questions axées sur les calculs ---
