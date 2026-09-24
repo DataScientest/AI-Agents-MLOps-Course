@@ -20,6 +20,7 @@ from psycopg.rows import dict_row
 from agents import build_diagnostic_agent
 from guardrails import degraded_diagnosis_message, invoke_diagnosis, tools_called
 from llm_settings import resolve_llm_settings
+from nodes.llm import LLMRateLimitError
 from state import AgentState
 from tools.mlops_tools import GrafanaDashboardLink, LokiLogSearch, PrometheusQuery
 
@@ -241,6 +242,13 @@ def final_message_of(final_state: Dict[str, Any]) -> str:
     return final_state.get("final_result") or "No final message from agent."
 
 
+def raise_rate_limited(endpoint: str, exc: LLMRateLimitError) -> None:
+    AGENT_ERROR_COUNT.labels(endpoint=endpoint, error_type="LLMRateLimitError").inc()
+    AGENT_DIAGNOSIS_COUNT.labels(outcome="rate_limited").inc()
+    logger.error("Diagnosis aborted, LLM rate limited: %s", exc)
+    raise HTTPException(status_code=429, detail=str(exc)) from exc
+
+
 # Sync endpoint (def, not async def): FastAPI runs it in its thread pool, so a long
 # diagnosis does not block the other requests (/health, /metrics...).
 @app.post("/diagnose_alert")
@@ -287,6 +295,9 @@ def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
             "current_agent_state": final_state,
         }
 
+    except LLMRateLimitError as exc:
+        raise_rate_limited("/diagnose_alert", exc)
+
     except Exception as exc:
         AGENT_ERROR_COUNT.labels(endpoint="/diagnose_alert", error_type=type(exc).__name__).inc()
         AGENT_DIAGNOSIS_COUNT.labels(outcome="failed").inc()
@@ -332,6 +343,9 @@ def resume_diagnosis(thread_id: str):
             "current_agent_state": final_state,
         }
     
+    except LLMRateLimitError as exc:
+        raise_rate_limited("/resume_diagnosis", exc)
+
     except Exception as exc:
         logger.exception(f"Error resuming diagnosis for thread_id {thread_id}: {exc}")
         raise HTTPException(status_code=500, detail=f"Failed to resume diagnosis: {exc}") from exc

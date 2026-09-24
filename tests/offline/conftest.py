@@ -1,5 +1,9 @@
 """Shared fixtures: fake models, no API key required."""
+import os
 from typing import Any
+
+# Chapters 5-6: tool service URLs are only defined in microservices mode (see docker-compose.yml).
+os.environ.setdefault("DEPLOYMENT_MODE", "microservices")
 
 import pytest
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel

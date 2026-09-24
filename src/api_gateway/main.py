@@ -69,6 +69,16 @@ def diagnose_alert(payload: Dict[str, Any] = Body(...)):
         logger.info(f"Forwarding diagnostic request to Agent Core: {AGENT_CORE_SERVICE_URL}")
         try:
             response = requests.post(AGENT_CORE_SERVICE_URL, json=payload, timeout=120)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error communicating with Agent Core: {e}")
+            raise HTTPException(status_code=502, detail=f"Bad Gateway: Error communicating with Agent Core: {e}")
+
+        if response.status_code == 429:
+            # LLM rate limited: pass the explicit error through instead of a generic 502.
+            detail = response.json().get("detail", "LLM rate limited")
+            logger.warning(f"Agent Core reported an LLM rate limit: {detail}")
+            raise HTTPException(status_code=429, detail=detail)
+        try:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
