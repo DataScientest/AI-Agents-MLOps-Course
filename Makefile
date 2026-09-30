@@ -12,7 +12,7 @@ links:
 	@echo "API Gateway (Entrypoint): http://localhost:8000"
 	@echo "Agent Core             : http://localhost:8005"
 	@echo "Prometheus             : http://localhost:9090"
-	@echo "Grafana                : http://localhost:3000"
+	@echo "Grafana                : http://localhost:3001"
 	@echo "Loki                   : http://localhost:3100"
 	@echo "----------------------"
 
@@ -21,7 +21,7 @@ api:
 
 test-api:
 	curl -X 'POST' \
-		'http://localhost:8080/predict' \
+		'http://localhost:8083/predict' \
 		-H 'accept: application/json' \
 		-H 'Content-Type: application/json' \
 		-d '{"text": "What a spectacular shot from Steph Curry!"}'
@@ -43,3 +43,9 @@ logs:
 status:
 	@echo "Checking health of the microservices mesh..."
 	@curl -s http://localhost:8000/health/mesh | jq '. | to_entries[] | {service: .key, status: .value}'
+
+# Offline tests (fake LLM, no API key, no Docker): same pinned deps as the Agent Core image
+test-offline:
+	cd tests/offline && uv run --no-project --python 3.12 \
+		--with-requirements ../../src/aiops_agent_monitor/requirements.txt \
+		--with pytest==9.1.1 pytest -v

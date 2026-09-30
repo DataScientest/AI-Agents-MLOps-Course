@@ -77,7 +77,7 @@ try:
     from knowledge_base import DiagnosisFeedback
 
     test_feedback = DiagnosisFeedback(
-        diagnosis_id="test-diag-001",
+        diagnosis_id=f"test-diag-{datetime.now():%Y%m%d%H%M%S}",  # one feedback per diagnosis_id
         thread_id="test-thread-001",
         alert_info="Test alert: High CPU on news-classifier-api",
         service_name="news-classifier-api",
