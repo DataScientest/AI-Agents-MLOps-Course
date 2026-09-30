@@ -5,6 +5,10 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 
 
+class DuplicateFeedbackError(Exception):
+    """Feedback was already recorded for this diagnosis_id (one feedback per diagnosis)."""
+
+
 class Incident(BaseModel):
     """Represents a past incident stored in knowledge base."""
 

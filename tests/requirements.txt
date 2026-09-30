@@ -1,0 +1,10 @@
+# Test dependencies for the Chapter 7 suites (unit, integration, e2e, chaos, sla, performance).
+# With uv (no install on the host):  make test-unit   (see the Makefile for the other suites)
+# With pip:  python3 -m venv .venv-tests && . .venv-tests/bin/activate && pip install -r tests/requirements.txt
+pytest==9.1.1
+pytest-cov==7.1.0
+requests==2.32.5
+fastapi==0.116.1
+httpx==0.28.1
+pydantic==2.11.7
+prometheus_client==0.22.1

@@ -16,7 +16,7 @@ from config import (
     RAG_TOP_K,
     RAG_SIMILARITY_THRESHOLD,
 )
-from .models import Incident, SimilarIncident, DiagnosisFeedback, AlertTypeStats
+from .models import Incident, SimilarIncident, DiagnosisFeedback, AlertTypeStats, DuplicateFeedbackError
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,13 @@ class PostgreSQLKnowledgeBaseImpl:
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                 """
-                cur.execute(sql, (feedback.diagnosis_id, feedback.thread_id, feedback.alert_info, feedback.service_name, feedback.alert_type, feedback.proposed_root_cause, feedback.proposed_solution, feedback.confidence_score, feedback.outcome))
+                try:
+                    cur.execute(sql, (feedback.diagnosis_id, feedback.thread_id, feedback.alert_info, feedback.service_name, feedback.alert_type, feedback.proposed_root_cause, feedback.proposed_solution, feedback.confidence_score, feedback.outcome))
+                except psycopg.errors.UniqueViolation as exc:
+                    # diagnosis_id is UNIQUE: a second feedback would update alert_type_stats twice.
+                    raise DuplicateFeedbackError(
+                        f"Feedback already recorded for diagnosis_id '{feedback.diagnosis_id}'"
+                    ) from exc
                 res = cur.fetchone()[0]
                 conn.commit()
                 return res

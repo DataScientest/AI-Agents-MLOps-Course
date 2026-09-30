@@ -13,7 +13,7 @@ from fastapi.responses import Response
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
 from knowledge_base.client import PostgreSQLKnowledgeBaseClient
-from knowledge_base.models import Incident, SimilarIncident, DiagnosisFeedback, AlertTypeStats
+from knowledge_base.models import Incident, SimilarIncident, DiagnosisFeedback, AlertTypeStats, DuplicateFeedbackError
 from config import POSTGRES_URI
 
 # Setup logging
@@ -105,6 +105,9 @@ def record_feedback(feedback: DiagnosisFeedback):
     try:
         feedback_id = kb_client.record_diagnosis_feedback(feedback)
         return {"id": feedback_id}
+    except DuplicateFeedbackError as e:
+        logger.warning(f"Duplicate feedback rejected: {e}")
+        raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to record feedback: {e}")
         raise HTTPException(status_code=500, detail=str(e))
