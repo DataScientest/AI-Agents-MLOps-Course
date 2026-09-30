@@ -27,7 +27,7 @@ from config import (
     RAG_TOP_K,
     RAG_SIMILARITY_THRESHOLD,
 )
-from .models import Incident, SimilarIncident, DiagnosisFeedback, AlertTypeStats
+from .models import Incident, SimilarIncident, DiagnosisFeedback, AlertTypeStats, DuplicateFeedbackError
 
 logger = logging.getLogger(__name__)
 
@@ -280,7 +280,11 @@ class PostgreSQLKnowledgeBaseClient(KnowledgeBaseClient):
             raise
 
     def record_diagnosis_feedback(self, feedback: DiagnosisFeedback) -> int:
-        """Record diagnosis feedback (triggers stats update automatically via DB trigger)."""
+        """Record diagnosis feedback (triggers stats update automatically via DB trigger).
+
+        One feedback per diagnosis_id: a second one raises DuplicateFeedbackError
+        instead of updating the row, which would count the diagnosis twice in alert_type_stats.
+        """
         logger.info(f"Recording feedback for diagnosis: {feedback.diagnosis_id}")
 
         try:
@@ -295,12 +299,6 @@ class PostgreSQLKnowledgeBaseClient(KnowledgeBaseClient):
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                         )
-                        ON CONFLICT (diagnosis_id) DO UPDATE SET
-                            outcome = EXCLUDED.outcome,
-                            human_correction = EXCLUDED.human_correction,
-                            corrected_root_cause = EXCLUDED.corrected_root_cause,
-                            corrected_solution = EXCLUDED.corrected_solution,
-                            feedback_received_at = EXCLUDED.feedback_received_at
                         RETURNING id
                     """
                     cur.execute(
@@ -327,6 +325,10 @@ class PostgreSQLKnowledgeBaseClient(KnowledgeBaseClient):
                     logger.info(f"Recorded feedback with id={feedback_id}")
                     return feedback_id
 
+        except psycopg.errors.UniqueViolation as e:
+            raise DuplicateFeedbackError(
+                f"Feedback already recorded for diagnosis_id '{feedback.diagnosis_id}'"
+            ) from e
         except Exception as e:
             logger.exception(f"Error recording feedback: {e}")
             raise

@@ -16,6 +16,7 @@ from prompts import (
     FINAL_SUMMARY_SYSTEM_PROMPT,
     FINAL_SUMMARY_HUMAN_TEMPLATE,
 )
+from guardrails import truncate_tool_call_output
 from state import AgentState
 from nodes.llm import llm_agent_node
 from nodes.finalize import finalize_diagnosis_node
@@ -32,7 +33,7 @@ def build_diagnostic_agent(
     """Create the compiled diagnostic agent graph with optional PostgreSQL checkpointing.
     
     Args:
-        llm: The ChatGroq LLM instance
+        llm: The LLM instance (BaseChatModel)
         tools: Iterable of LangChain tools for the agent
         checkpointer: Optional PostgresSaver for persistent memory
         
@@ -41,7 +42,8 @@ def build_diagnostic_agent(
     """
     graph = StateGraph(AgentState)
     graph.add_node("llm_agent_node", llm_agent_node(llm, tools, DIAGNOSTIC_SYSTEM_PROMPT))
-    graph.add_node("tool_executor", ToolNode(tools))
+    # Each tool result is truncated to TOOL_OUTPUT_MAX_CHARS before it reaches the LLM.
+    graph.add_node("tool_executor", ToolNode(tools, wrap_tool_call=truncate_tool_call_output))
     graph.add_node(
         "finalize_diagnosis",
         finalize_diagnosis_node(

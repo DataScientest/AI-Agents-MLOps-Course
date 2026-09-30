@@ -1,7 +1,7 @@
 """Knowledge Base module for RAG-powered incident retrieval."""
 
 from .client import KnowledgeBaseClient, get_kb_client
-from .models import Incident, DiagnosisFeedback, AlertTypeStats
+from .models import Incident, DiagnosisFeedback, AlertTypeStats, DuplicateFeedbackError
 
 __all__ = [
     "KnowledgeBaseClient",
@@ -9,4 +9,5 @@ __all__ = [
     "Incident",
     "DiagnosisFeedback",
     "AlertTypeStats",
+    "DuplicateFeedbackError",
 ]
