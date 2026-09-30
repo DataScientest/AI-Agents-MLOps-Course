@@ -1,6 +1,6 @@
 import logging
 
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -9,7 +9,7 @@ from src.state import AgentState
 logger = logging.getLogger(__name__)
 
 
-def build_propose_action_node(llm_client: ChatGroq):
+def build_propose_action_node(llm_client: BaseChatModel):
     def propose_action_node(state: AgentState):
         logger.info("Node 'propose_action': Action proposal.")
 
@@ -36,8 +36,8 @@ def build_propose_action_node(llm_client: ChatGroq):
 
         return {
             "proposed_action": llm_response.strip(),
-            "messages": state["messages"]
-            + [
+            # Only the new messages: the add_messages reducer appends them to the history
+            "messages": [
                 AIMessage(
                     content=f"Proposed action: '{llm_response.strip()}'. Awaiting human approval."
                 ),

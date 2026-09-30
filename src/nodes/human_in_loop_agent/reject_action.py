@@ -12,6 +12,6 @@ def reject_action_node(state: AgentState):
     final_msg = f"Action rejected by human. Feedback: {state['human_feedback']}. End."
 
     return {
-        "messages": state["messages"] + [AIMessage(content=final_msg)],
+        "messages": [AIMessage(content=final_msg)],
         "final_result": final_msg,
     }

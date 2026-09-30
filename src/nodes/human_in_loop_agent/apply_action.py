@@ -16,6 +16,6 @@ def apply_action_node(state: AgentState):
     final_msg = f"Action applied: {result}"
 
     return {
-        "messages": state["messages"] + [AIMessage(content=final_msg)],
+        "messages": [AIMessage(content=final_msg)],
         "final_result": final_msg,
     }

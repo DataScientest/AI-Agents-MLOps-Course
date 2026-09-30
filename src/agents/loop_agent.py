@@ -1,7 +1,7 @@
 import logging
 
 from typing import List
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import Tool
 from langgraph.graph import StateGraph
 
@@ -16,7 +16,7 @@ from src.state import AgentState
 logger = logging.getLogger(__name__)
 
 # --- Pattern 3 : Loop with Conditions (Log Investigation Agent) ---
-def create_log_investigator_agent(llm_client: ChatGroq, tools_for_graph: List[Tool]):
+def create_log_investigator_agent(llm_client: BaseChatModel, tools_for_graph: List[Tool]):
     workflow = StateGraph(AgentState)
 
     search_logs_node = build_search_logs_node(llm_client)

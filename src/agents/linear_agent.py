@@ -1,7 +1,7 @@
 # src/agents/linear_agent.py
 import logging
 from typing import List
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import Tool
 from langgraph.graph import StateGraph
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # --- Pattern 1 : Linear Workflow (Basic Health Report Agent) ---
 # Objective: Collect CPU metrics, generate a simple report.
-def create_linear_report_agent(llm_client: ChatGroq, tools_for_graph: List[Tool]):
+def create_linear_report_agent(llm_client: BaseChatModel, tools_for_graph: List[Tool]):
     workflow = StateGraph(AgentState)
 
     generate_report_node = build_generate_report_node(llm_client)

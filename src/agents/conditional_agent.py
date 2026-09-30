@@ -1,7 +1,7 @@
 import logging
 
 from typing import List
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import Tool
 from langgraph.graph import StateGraph
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # --- Pattern 2 : Conditional Branching (Alert Routing Agent) ---
 # Objective: Route an alert based on its severity (critical, medium, low).
-def create_alert_router_agent(llm_client: ChatGroq, tools_for_graph: List[Tool]):
+def create_alert_router_agent(llm_client: BaseChatModel, tools_for_graph: List[Tool]):
     workflow = StateGraph(AgentState)
 
     workflow.add_node("evaluate_alert", evaluate_alert_node)
