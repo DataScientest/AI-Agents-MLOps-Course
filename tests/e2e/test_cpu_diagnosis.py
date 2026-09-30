@@ -16,8 +16,12 @@ def test_full_diagnosis_workflow(service_urls, sample_alert):
     )
     
     # 2. Validate response
-    assert response.status_code == 200
+    assert response.status_code == 200, f"Diagnosis failed: {response.status_code} {response.text[:300]}"
     data = response.json()
+
+    # A real diagnosis: not a degraded answer, and the agent actually used its tools
+    assert data.get("status") == "success", f"Degraded diagnosis: {data.get('agent_diagnosis')}"
+    assert data.get("tools_called"), "The agent answered without calling any tool"
     
     # 3. Verify diagnosis structure
     assert "agent_diagnosis" in data
@@ -39,8 +43,9 @@ def test_diagnosis_persistence(service_urls, sample_alert):
     gateway_url = service_urls["gateway"]
     
     # Trigger diagnosis
-    response = requests.post(f"{gateway_url}/diagnose_alert", json=sample_alert)
-    assert response.status_code == 200
+    response = requests.post(f"{gateway_url}/diagnose_alert", json=sample_alert, timeout=120)
+    assert response.status_code == 200, f"Diagnosis failed: {response.status_code} {response.text[:300]}"
+    assert response.json().get("status") == "success"
     thread_id = response.json().get("thread_id")
     
     if thread_id:

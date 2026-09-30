@@ -46,7 +46,7 @@ SCENARIOS = [
     # Add more scenarios as needed
 ]
 
-@pytest.mark.parametrize("scenario", SCENARIOS)
+@pytest.mark.parametrize("scenario", SCENARIOS, ids=[s["id"] for s in SCENARIOS])
 def test_sla_compliance(service_urls, scenario):
     """
     Validate that a specific scenario meets the production SLA:
@@ -70,6 +70,10 @@ def test_sla_compliance(service_urls, scenario):
     
     data = response.json()
     diagnosis = data.get("agent_diagnosis", "").lower()
+
+    # A degraded answer (step limit) or an answer without any tool call does not count
+    assert data.get("status") == "success", f"Scenario {scenario['id']} degraded: {data.get('agent_diagnosis')}"
+    assert data.get("tools_called"), f"Scenario {scenario['id']}: no tool was called"
     
     # 2. Latency Check
     assert latency <= SLA_MAX_LATENCY_P95, f"Scenario {scenario['id']} took {latency:.2f}s, exceeding SLA of {SLA_MAX_LATENCY_P95}s"
