@@ -6,7 +6,7 @@ import logging
 from typing import Iterable
 
 from langchain_core.tools import BaseTool
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode
 
@@ -15,6 +15,7 @@ from prompts import (
     FINAL_SUMMARY_SYSTEM_PROMPT,
     FINAL_SUMMARY_HUMAN_TEMPLATE,
 )
+from guardrails import truncate_tool_call_output
 from state import AgentState
 from nodes.llm import llm_agent_node
 from nodes.finalize import finalize_diagnosis_node
@@ -23,11 +24,12 @@ from nodes.routing import route_agent_decide
 logger = logging.getLogger(__name__)
 
 
-def build_diagnostic_agent(llm: ChatGroq, tools: Iterable[BaseTool]) -> StateGraph:
+def build_diagnostic_agent(llm: BaseChatModel, tools: Iterable[BaseTool]) -> StateGraph:
     """Create the compiled diagnostic agent graph."""
     graph = StateGraph(AgentState)
     graph.add_node("llm_agent_node", llm_agent_node(llm, tools, DIAGNOSTIC_SYSTEM_PROMPT))
-    graph.add_node("tool_executor", ToolNode(tools))
+    # Each tool result is truncated to TOOL_OUTPUT_MAX_CHARS before it reaches the LLM.
+    graph.add_node("tool_executor", ToolNode(tools, wrap_tool_call=truncate_tool_call_output))
     graph.add_node(
         "finalize_diagnosis",
         finalize_diagnosis_node(

@@ -9,11 +9,15 @@ from typing import Any, Dict
 
 from dotenv import load_dotenv
 from fastapi import Body, FastAPI, HTTPException, Request, Response
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 from prometheus_client import Counter, Gauge, Histogram, generate_latest
 
 from agents import build_diagnostic_agent
+from guardrails import degraded_diagnosis_message, invoke_diagnosis, tools_called
+from llm_settings import resolve_llm_settings
+from nodes.llm import LLMRateLimitError
 from state import AgentState
 from tools.mlops_tools import GrafanaDashboardLink, LokiLogSearch, PrometheusQuery
 
@@ -71,20 +75,21 @@ AGENT_DIAGNOSIS_COUNT = Counter(
 AGENT_STATUS_GAUGE.set(1)
 
 
-def init_llm() -> ChatGroq:
-    groq_key = os.getenv("GROQ_API_KEY")
-    if not groq_key:
+def init_llm() -> BaseChatModel:
+    # Groq through its OpenAI-compatible API: GROQ_API_KEY + GROQ_MODEL_NAME,
+    # endpoint LLM_API_BASE (optional, default: https://api.groq.com/openai/v1).
+    model_name, api_key, base_url = resolve_llm_settings()
+    if not api_key:
         raise RuntimeError("GROQ_API_KEY environment variable not set for AIOps Agent Service.")
 
-    model_name = os.getenv("GROQ_MODEL_NAME")
     try:
-        llm = ChatGroq(temperature=0, model_name=model_name, groq_api_key=groq_key)
+        llm = ChatOpenAI(model=model_name, temperature=0, api_key=api_key, base_url=base_url)
     except Exception as exc:  # pragma: no cover - startup failure
         logger.exception("Error initialising LLM for deployed monitor agent")
-        raise RuntimeError("Unable to initialise Groq LLM client") from exc
+        raise RuntimeError("Unable to initialise LLM client") from exc
 
-    LLM_MODEL_INFO.labels(model_name=llm.model_name).set(1)
-    logger.info("LLM %s initialised successfully.", llm.model_name)
+    LLM_MODEL_INFO.labels(model_name=model_name).set(1)
+    logger.info("LLM %s initialised successfully via %s.", model_name, base_url)
     return llm
 
 
@@ -160,15 +165,33 @@ async def read_root():
     return {"message": "AIOps Diagnostic Agent Service is running and ready to diagnose alerts!"}
 
 
+def raise_rate_limited(endpoint: str, exc: LLMRateLimitError) -> None:
+    AGENT_ERROR_COUNT.labels(endpoint=endpoint, error_type="LLMRateLimitError").inc()
+    AGENT_DIAGNOSIS_COUNT.labels(outcome="rate_limited").inc()
+    logger.error("Diagnosis aborted, LLM rate limited: %s", exc)
+    raise HTTPException(status_code=429, detail=str(exc)) from exc
+
+
+# Sync endpoint (def, not async def): FastAPI runs it in its thread pool, so a long
+# diagnosis does not block the other requests (/metrics...).
 @app.post("/diagnose_alert")
-async def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
+def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
     AGENT_RUN_COUNT.inc()
     alert_info = render_alert_info(alert_payload)
     logger.info("Received alert for diagnosis: %s", alert_info)
 
     start_time = time.time()
     try:
-        final_state = DIAGNOSTIC_AGENT.invoke(build_initial_state(alert_info))
+        final_state, degraded_reason = invoke_diagnosis(DIAGNOSTIC_AGENT, build_initial_state(alert_info))
+        if degraded_reason:
+            # Step limit reached (AGENT_RECURSION_LIMIT): explicit degraded answer, not a 500.
+            AGENT_DIAGNOSIS_COUNT.labels(outcome="degraded").inc()
+            return {
+                "status": "degraded",
+                "reason": degraded_reason,
+                "agent_diagnosis": degraded_diagnosis_message(final_state),
+                "tools_called": tools_called(final_state.get("messages", [])),
+            }
         messages = final_state.get("messages", [])
         final_message = (
             messages[-1].content
@@ -178,7 +201,14 @@ async def diagnose_alert(alert_payload: Dict[str, Any] = Body(...)):
         outcome = classify_outcome(final_message, final_state.get("final_result"))
         AGENT_DIAGNOSIS_COUNT.labels(outcome=outcome).inc()
         logger.info("Agent diagnostic run completed. Outcome: %s", outcome)
-        return {"status": "success", "agent_diagnosis": final_message}
+        return {
+            "status": "success",
+            "agent_diagnosis": final_message,
+            "tools_called": tools_called(messages),
+        }
+
+    except LLMRateLimitError as exc:
+        raise_rate_limited("/diagnose_alert", exc)
 
     except Exception as exc:
         AGENT_ERROR_COUNT.labels(endpoint="/diagnose_alert", error_type=type(exc).__name__).inc()

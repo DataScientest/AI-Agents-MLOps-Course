@@ -6,6 +6,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY state.py .
+COPY guardrails.py .
+COPY llm_settings.py .
 COPY agents/ ./agents/
 COPY nodes/ ./nodes/
 COPY tools/ ./tools/

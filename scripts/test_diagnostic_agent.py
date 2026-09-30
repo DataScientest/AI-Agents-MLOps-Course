@@ -11,9 +11,11 @@ sys.path.insert(0, str(PROJECT_ROOT / "src" / "aiops_agent_monitor"))
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 
 from agents.diagnostic import build_diagnostic_agent
+from guardrails import get_recursion_limit
+from llm_settings import resolve_llm_settings
 from state import AgentState
 from tools.mlops_tools import PrometheusQuery, LokiLogSearch, GrafanaDashboardLink
 
@@ -44,15 +46,14 @@ def main():
     else:
         print(f"\nLangSmith tracing ENABLED")
 
-    # Initialize LLM
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    if not groq_api_key:
+    # Initialize LLM (GROQ_API_KEY, GROQ_MODEL_NAME, optional LLM_API_BASE)
+    model_name, api_key, base_url = resolve_llm_settings()
+    if not api_key:
         print("ERROR: GROQ_API_KEY environment variable not set.")
         sys.exit(1)
 
-    model_name = os.getenv("GROQ_MODEL_NAME", "llama-3.3-70b-versatile")
-    llm = ChatGroq(temperature=0, model_name=model_name, groq_api_key=groq_api_key)
-    print(f"Initialized LLM: {model_name}")
+    llm = ChatOpenAI(model=model_name, temperature=0, api_key=api_key, base_url=base_url)
+    print(f"Initialized LLM: {model_name} via {base_url}")
 
     # Initialize tools
     tools = [PrometheusQuery, LokiLogSearch, GrafanaDashboardLink]
@@ -84,7 +85,7 @@ def main():
     print("(Check LangSmith UI for trace visualization)\n")
 
     try:
-        final_state = agent.invoke(initial_state)
+        final_state = agent.invoke(initial_state, config={"recursion_limit": get_recursion_limit()})
 
         # Extract final diagnosis
         messages = final_state.get("messages", [])

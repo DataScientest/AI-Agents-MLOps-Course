@@ -66,22 +66,22 @@ def PrometheusQuery(query: str, time_range_minutes: int, step_seconds: int, targ
                 formatted_results.append(f"{{ {metric_labels} }} values: {', '.join(values)}")
             
             logger.info(f"Prometheus query successful. Results: {len(data['data']['result'])} series.")
-            return "Prometheus query results:\n" + "\n".join(formatted_results)
+            return f"PromQL query: {query}\nPrometheus query results:\n" + "\n".join(formatted_results)
         else:
             logger.warning("Prometheus query successful but no data found.")
-            return "Prometheus query: No data found for the given query and time range."
+            return f"PromQL query: {query}\nPrometheus query: No data found for the given query and time range."
     
     except requests.exceptions.RequestException as e:
         logger.error(f"Error querying Prometheus at {prom_url}: {e}")
-        return f"Failed to query Prometheus: {e}"
+        return f"PromQL query: {query}\nFailed to query Prometheus: {e}"
     except Exception as e:
         logger.error(f"An unexpected error occurred during PrometheusQuery: {e}", exc_info=True)
-        return f"An unexpected error occurred: {e}"
+        return f"PromQL query: {query}\nAn unexpected error occurred: {e}"
 
 # --- Loki Log Search Tool ---
 class LokiLogSearchInput(BaseModel):
     """Schema for LokiLogSearch tool input."""
-    query: str = Field(description="The LogQL query to execute on Loki, e.g., '{job=\"docker\", container_name=\"news-classifier-api\"} |= \"error\"'.")
+    query: str = Field(description="The LogQL query to execute on Loki, e.g., '{job=\"docker\", service=\"news-classifier-api\"} |= \"error\"'.")
     time_range_minutes: int = Field(default=5, description="The time range in minutes for the query.")
     limit: int = Field(default=10, description="Maximum number of log lines to return.")
     target_service: Optional[str] = Field(default=None, description="The specific service to filter logs for, e.g., 'news-classifier-api'.")
@@ -200,7 +200,7 @@ def GrafanaDashboardLink(dashboard_uid: str, time_range_minutes: int, service_fi
     Useful for providing a human operator with a visual context of the issue.
     The input arguments are: 'dashboard_uid' (str), 'time_range_minutes' (int),
     and optionally 'service_filter' (str).
-    Example input: {'dashboard_uid': 'news_classifier_health', 'time_range_minutes': 60, 'service_filter': 'news-classifier-api'}.
+    Example input: {'dashboard_uid': '364e23d4-9655-4ae9-ac6a-baf04e0e1b6d', 'time_range_minutes': 60, 'service_filter': 'news-classifier-api'}.
     """
     # Get URL at runtime to support environment variable overrides
     grafana_url = os.getenv("GRAFANA_URL", GRAFANA_URL)
